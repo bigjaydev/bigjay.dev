@@ -1,0 +1,24 @@
+---
+layout: '../layouts/BaseLayout.astro'
+title: 'Test Page'
+---
+
+export const continents = ['Africa', 'South America', 'Asia', 'Europe'];
+
+I think 2 + 2 is {2+2}
+
+# Math operations Test in MDX, Astro and Vite
+
+### There are 7 continents in the world, below are a few of them listed:
+
+<ul class="list-disc list-inside" >
+  {continents.map((continent) => (
+    <li>{continent}</li>
+  ))}
+</ul>
+
+## HTML-JSX-Markdown Mix
+
+<blockquote class="border-l-4 border-gray-300 pl-4">
+  <p class="text-gray-500">Some <em>notable</em> things in a block quote!</p>
+</blockquote>
