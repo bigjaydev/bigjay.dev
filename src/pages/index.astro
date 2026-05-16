@@ -1,25 +1,15 @@
 ---
-import '../styles/global.css'
+import DavinciMachine from "../components/DavinciMachine.tsx";
+import Cog from "../components/Cog.tsx";
+import ThreeCog from "../components/ThreeCog.tsx";
+
+import BaseLayout from '../layouts/BaseLayout.astro'; 
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1 class="text-3xl font-bold underline">Astro</h1>
-		<p class="text-gray-500">This is a test paragraph</p>
-		<button class="bg-blue-500 text-white p-2 rounded-md">Click me</button>
-		<input type="text" class="border-2 border-gray-300 rounded-md p-2" placeholder="Enter your name" />
-		<textarea class="border-2 border-gray-300 rounded-md p-2" placeholder="Enter your message"></textarea>
-		<select class="border-2 border-gray-300 rounded-md p-2">
-			<option value="1">Option 1</option>
-			<option value="2">Option 2</option>
-		</select> -->
-	</body>
-</html>
+
+<BaseLayout frontmatter={{ title: "Big Jay's Portfolio" }}>
+  <h1 class="text-3xl font-bold underline">Astro</h1>
+  <ThreeCog client:load />
+  <Cog seed="Hello!" client:load />
+  <DavinciMachine seed="Hello, worldasdfoiddsdfsdjasdfoijoijasdf!" client:load />
+</BaseLayout>
