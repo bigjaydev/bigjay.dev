@@ -18,6 +18,10 @@ if (!post) {
 const { Content } = await render(post);
 ---
 
-<BlogLayout title={post.data.title} heroImage={post.data.heroImage}>
+<BlogLayout
+	title={post.data.title}
+	heroImage={post.data.heroImage}
+	updatedDate={post.data.updatedDate}
+>
 	<Content />
 </BlogLayout>

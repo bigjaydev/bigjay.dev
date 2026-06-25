@@ -3,23 +3,18 @@ import { Image } from "astro:assets";
 
 import BaseLayout from "./BaseLayout.astro";
 
-const { title, heroImage } = Astro.props;
+const { title, heroImage, updatedDate } = Astro.props;
+const formattedDate = updatedDate.toLocaleDateString("en-AU", {
+	day: "numeric",
+	month: "long",
+	year: "numeric",
+});
 ---
 
 <BaseLayout frontmatter={{ title }}>
-	{
-		heroImage ? (
-			<div class="relative -mx-6 lg:-mx-16">
-				<Image
-					src={heroImage}
-					alt={title}
-					class="h-64 w-full object-cover object-center brightness-165 contrast-120"
-				/>
-			</div>
-		) : null
-	}
 	<article class="prose prose-slate mt-6 max-w-none">
-		<h1 class="text-primary font-audiowide mt-8 mb-12">{title}</h1>
+		<h1 class="text-primary font-space-grotesk mt-8">{title}</h1>
+		<p class="text-small mb-12 uppercase">{formattedDate}</p>
 		<slot />
 	</article>
 </BaseLayout>

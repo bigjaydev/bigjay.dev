@@ -11,11 +11,5 @@ export default defineConfig({
 	vite: {
 		plugins: [tailwindcss({})],
 	},
-	fonts: [
-		{
-			name: "Oi",
-			provider: fontProviders.google(),
-			cssVariable: "--font-oi",
-		},
-	],
+	fonts: [],
 });
