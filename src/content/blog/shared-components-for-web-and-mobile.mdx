@@ -1,0 +1,39 @@
+---
+title: "Shared components for web and mobile"
+description: "In this article I build a shared component system for react and react native apps built in a monorepo"
+pubDate: 2026-05-16
+updatedDate: 2026-05-16
+heroImage: ../../assets/blog/shared-components-for-web-and-mobile.jpg
+---
+
+I had a project that required sharing UI components across web and native and to be honest I thought this would have been something solved but the best
+solution I could find was wrapping a higher order component around all the components that checked the platform then rendered the appropriate component.
+While that works, it felt like the wrong abstraction. Every component ended up carrying platform-specific logic, which meant more boilerplate, more maintenance,
+and more places for platform concerns to leak into the application.
+
+Instead of building every component twice, I realized React already provides a mechanism for sharing behaviour across different implementations: composition.
+
+The approach was simple. Create a small set of platform-specific primitives:
+Text
+Block (div on web, View on native)
+Input
+Select
+Button
+These primitives form the foundation of the design system. Everything above them is built entirely through composition.
+
+To me this also seemed very similar to principles of atomic design - atoms are the platform dependant primitives,
+molecules are the components built from those primitives such as Menus, Tabs, etc and then Organisms are compositions of molecules.
+The difference is that the hierarchy isn't being used to organise visual design, but to isolate platform-specific implementations.
+
+For example, a UserCard doesn't know whether it's running on web or native. It simply composes Block, Text, and Button. The platform differences are isolated to the primitive layer.
+
+The thing that makes this work is platform-specific file resolution. React Native's Metro bundler and web bundlers such as Vite and webpack can automatically resolve files like:
+
+Block.tsx
+Block.native.tsx
+or even as granular as Block.android.tsx
+
+When code imports Block, the correct implementation is selected automatically for the target platform.
+
+The result is that only the primitive components need platform-specific implementations. The vast majority of the component hierarchy remains completely shared,
+reducing duplication and keeping platform concerns contained to a single layer.

@@ -1,0 +1,10 @@
+---
+import { ChevronRight } from "lucide-astro";
+
+const { href, class: className = "" } = Astro.props;
+---
+
+<a href={href} class={["text-primary flex gap-1 align-center", className].join(" ")}>
+	<slot />
+	<ChevronRight class="h-5 w-5" />
+</a>

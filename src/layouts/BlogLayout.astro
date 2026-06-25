@@ -1,10 +1,25 @@
 ---
+import { Image } from "astro:assets";
+
 import BaseLayout from "./BaseLayout.astro";
 
-const { title } = Astro.props;
+const { title, heroImage } = Astro.props;
 ---
 
 <BaseLayout frontmatter={{ title }}>
-  burasdfas
-  <slot />
+	{
+		heroImage ? (
+			<div class="relative -mx-6 lg:-mx-16">
+				<Image
+					src={heroImage}
+					alt={title}
+					class="h-64 w-full object-cover object-center brightness-165 contrast-120"
+				/>
+			</div>
+		) : null
+	}
+	<article class="prose prose-slate mt-6 max-w-none">
+		<h1 class="text-primary font-audiowide mt-8 mb-12">{title}</h1>
+		<slot />
+	</article>
 </BaseLayout>

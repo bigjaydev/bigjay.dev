@@ -1,15 +1,5 @@
 ---
-import DavinciMachine from "../components/DavinciMachine.tsx";
-import Cog from "../components/Cog.tsx";
-import ThreeCog from "../components/ThreeCog.tsx";
-
-import BaseLayout from '../layouts/BaseLayout.astro'; 
+import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
-
-<BaseLayout frontmatter={{ title: "Big Jay's Portfolio" }}>
-  <h1 class="text-3xl font-bold underline">Astro</h1>
-  <ThreeCog client:load />
-  <Cog seed="Hello!" client:load />
-  <DavinciMachine seed="Hello, worldasdfoiddsdfsdjasdfoijoijasdf!" client:load />
-</BaseLayout>
+<BaseLayout frontmatter={{ title: "Big Jay's Portfolio" }} />
