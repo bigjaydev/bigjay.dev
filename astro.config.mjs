@@ -10,6 +10,15 @@ export default defineConfig({
 	integrations: [mdx(), react()],
 	vite: {
 		plugins: [tailwindcss({})],
+		server: {
+			proxy: {
+				"/google-news": {
+					target: "https://news.google.com",
+					changeOrigin: true,
+					rewrite: (path) => path.replace(/^\/google-news/, ""),
+				},
+			},
+		},
 	},
 	fonts: [],
 });
