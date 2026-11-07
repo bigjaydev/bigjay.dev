@@ -1,5 +1,30 @@
 ---
+import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+const sketches = (await getCollection("sketches")).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
 ---
 
-<BaseLayout frontmatter={{ title: "bigjay.dev" }} />
+<BaseLayout frontmatter={{ title: "bigjay.dev" }}>
+	<main class="mx-auto max-w-4xl px-6 py-12">
+		<ul class="space-y-3">
+			{
+				sketches.map((sketch) => (
+					<li>
+						<a href={`/sketches/${sketch.id}/`} class="hover:text-primary text-lg underline">
+							{sketch.data.pubDate.toLocaleDateString("en-AU", {
+								day: "numeric",
+								month: "short",
+								year: "numeric",
+							})}
+							{" · "}
+							{sketch.data.title}
+						</a>
+					</li>
+				))
+			}
+		</ul>
+	</main>
+</BaseLayout>

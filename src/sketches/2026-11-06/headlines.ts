@@ -5,6 +5,12 @@ export type Headline = {
 	published: string;
 };
 
+type RssItem = {
+	title?: string;
+	link?: string;
+	pubDate?: string;
+};
+
 const SEARCH_NAMES: Record<string, string> = {
 	"United States of America": "United States",
 	"W. Sahara": "Western Sahara",
@@ -26,18 +32,20 @@ function searchName(country: string) {
 	return SEARCH_NAMES[country] ?? country;
 }
 
-function headlineFromItem(item: Element): Headline | null {
-	const rawTitle = item.querySelector("title")?.textContent?.trim() ?? "";
-	const source = item.querySelector("source")?.textContent?.trim() ?? "";
-	const url = item.querySelector("link")?.textContent?.trim() ?? "";
+function headlineFromItem(item: RssItem): Headline | null {
+	const rawTitle = item.title?.trim() ?? "";
+	const url = item.link?.trim() ?? "";
 	if (!rawTitle || !url) return null;
-	const suffix = source ? ` - ${source}` : "";
-	const title = suffix && rawTitle.endsWith(suffix) ? rawTitle.slice(0, -suffix.length) : rawTitle;
+
+	const separator = rawTitle.lastIndexOf(" - ");
+	const title = separator > 0 ? rawTitle.slice(0, separator) : rawTitle;
+	const source = separator > 0 ? rawTitle.slice(separator + 3) : "";
+
 	return {
 		title,
 		source,
 		url,
-		published: item.querySelector("pubDate")?.textContent?.trim() ?? "",
+		published: item.pubDate?.trim() ?? "",
 	};
 }
 
@@ -45,18 +53,22 @@ export async function fetchHeadlines(country: string, signal: AbortSignal): Prom
 	const cached = cache.get(country);
 	if (cached) return cached;
 
-	const query = `${searchName(country)} when:1d`;
+	const googleRss = new URL("https://news.google.com/rss/search");
+	googleRss.searchParams.set("q", `${searchName(country)} when:1d`);
+	googleRss.searchParams.set("hl", "en-US");
+	googleRss.searchParams.set("gl", "US");
+	googleRss.searchParams.set("ceid", "US:en");
+
 	const response = await fetch(
-		`/google-news/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`,
+		`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(googleRss.toString())}`,
 		{ signal },
 	);
 	if (!response.ok) throw new Error(`Headlines request failed (${response.status})`);
 
-	const xml = await response.text();
-	const document = new DOMParser().parseFromString(xml, "text/xml");
-	if (document.querySelector("parsererror")) throw new Error("Headlines feed could not be read");
+	const data = (await response.json()) as { status?: string; items?: RssItem[] };
+	if (data.status !== "ok") throw new Error("Headlines feed could not be read");
 
-	const headlines = [...document.querySelectorAll("item")]
+	const headlines = (data.items ?? [])
 		.slice(0, 8)
 		.map(headlineFromItem)
 		.filter((headline): headline is Headline => headline !== null);

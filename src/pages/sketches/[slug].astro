@@ -1,33 +1,36 @@
 ---
 import { getCollection, getEntry, render } from "astro:content";
-import BaseLayout from "../../layouts/BaseLayout.astro";
+import SketchLayout from "../../layouts/SketchLayout.astro";
 
 export async function getStaticPaths() {
 	const sketches = await getCollection("sketches");
-	return sketches
-		.filter((sketch) => sketch.id !== "2026-11-06")
-		.map((sketch) => ({
-			params: { slug: sketch.id },
-		}));
+	return sketches.map((sketch) => ({
+		params: { slug: sketch.id },
+	}));
 }
 
+const sketches = (await getCollection("sketches")).sort(
+	(a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf(),
+);
 const sketch = await getEntry("sketches", Astro.params.slug!);
 
 if (!sketch) {
 	return Astro.redirect("/404");
 }
 
+const index = sketches.findIndex((entry) => entry.id === sketch.id);
+const prev = index > 0 ? sketches[index - 1] : null;
+const next = index >= 0 && index < sketches.length - 1 ? sketches[index + 1] : null;
+
 const { Content } = await render(sketch);
-const formattedDate = sketch.data.pubDate.toLocaleDateString("en-AU", {
-	day: "numeric",
-	month: "long",
-	year: "numeric",
-});
 ---
 
-<BaseLayout frontmatter={{ title: sketch.data.title }}>
-	<p class="text-sm tracking-wide text-slate-500 uppercase">{formattedDate}</p>
-	<h1 class="font-space-grotesk text-primary mt-2 text-4xl">{sketch.data.title}</h1>
-	<p class="mt-3 mb-8">{sketch.data.description}</p>
+<SketchLayout
+	title={sketch.data.title}
+	description={sketch.data.description}
+	pubDate={sketch.data.pubDate}
+	prev={prev ? { id: prev.id, title: prev.data.title } : null}
+	next={next ? { id: next.id, title: next.data.title } : null}
+>
 	<Content />
-</BaseLayout>
+</SketchLayout>

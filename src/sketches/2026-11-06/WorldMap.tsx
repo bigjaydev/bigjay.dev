@@ -1,10 +1,10 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import topology from "../data/countries-110m.json" with { type: "json" };
-import { decodeCountries } from "./world-map/countries";
-import { fetchHeadlines, formatPublished, type Headline } from "./world-map/headlines";
-import { countryAt, createWorldMap, paintHighlight, type WorldMapCanvas } from "./world-map/paint";
+import topology from "./countries-110m.json" with { type: "json" };
+import { decodeCountries } from "./countries";
+import { fetchHeadlines, formatPublished, type Headline } from "./headlines";
+import { countryAt, createWorldMap, paintHighlight, type WorldMapCanvas } from "./paint";
 
 const glowColor = new THREE.Color("#fecef5");
 
@@ -256,7 +256,7 @@ export default function WorldMap() {
 	const map = useMemo(() => createWorldMap(decodeCountries(topology)), []);
 
 	return (
-		<div>
+		<div className="mx-auto max-w-4xl px-6 pb-12">
 			<section
 				aria-label="3D world map"
 				className="relative h-[min(70vh,640px)] min-h-[420px] w-full overflow-hidden rounded-3xl bg-[#191b1a]"
