@@ -74,7 +74,15 @@ function Globe({
 	const hovered = useRef<string | null>(null);
 	const selectedRef = useRef(selected);
 	const armed = useRef<string | null>(null);
-	const drag = useRef({ active: false, moved: false, x: 0, y: 0, originX: 0, originY: 0, spin: 0.12 });
+	const drag = useRef({
+		active: false,
+		moved: false,
+		x: 0,
+		y: 0,
+		originX: 0,
+		originY: 0,
+		spin: 0.12,
+	});
 	selectedRef.current = selected;
 	const { gl } = useThree();
 
@@ -110,7 +118,10 @@ function Globe({
 			if (!drag.current.active || !group.current) return;
 			const dx = event.clientX - drag.current.x;
 			const dy = event.clientY - drag.current.y;
-			const travel = Math.hypot(event.clientX - drag.current.originX, event.clientY - drag.current.originY);
+			const travel = Math.hypot(
+				event.clientX - drag.current.originX,
+				event.clientY - drag.current.originY,
+			);
 			if (travel > 8) drag.current.moved = true;
 			group.current.rotation.y += dx * 0.005;
 			group.current.rotation.x = Math.max(
@@ -235,7 +246,12 @@ function Headlines({ country }: { country: string }) {
 				<ul className="mt-4 space-y-5">
 					{headlines.map((headline) => (
 						<li key={headline.url}>
-							<a href={headline.url} target="_blank" rel="noreferrer" className="text-primary underline">
+							<a
+								href={headline.url}
+								target="_blank"
+								rel="noreferrer"
+								className="text-primary underline"
+							>
 								{headline.title}
 							</a>
 							<p className="mt-1 text-sm text-gray-500">
@@ -256,7 +272,7 @@ export default function WorldMap() {
 	const map = useMemo(() => createWorldMap(decodeCountries(topology)), []);
 
 	return (
-		<div className="mx-auto max-w-4xl px-6 pb-12">
+		<div className="mx-auto max-w-6xl px-6 pb-12">
 			<section
 				aria-label="3D world map"
 				className="relative h-[min(70vh,640px)] min-h-[420px] w-full overflow-hidden rounded-3xl bg-[#191b1a]"
@@ -271,8 +287,12 @@ export default function WorldMap() {
 					<Globe map={map} selected={selected} onHover={setHovered} onSelect={setSelected} />
 				</Canvas>
 				<div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
-					<p className="font-space-grotesk text-xl text-[#fecef5]">{hovered ?? selected ?? "World"}</p>
-					<p className="text-xs tracking-[0.16em] text-[#fecef5]/70 uppercase">Click for today’s headlines</p>
+					<p className="font-space-grotesk text-xl text-[#fecef5]">
+						{hovered ?? selected ?? "World"}
+					</p>
+					<p className="text-xs tracking-[0.16em] text-[#fecef5]/70 uppercase">
+						Click for today’s headlines
+					</p>
 				</div>
 			</section>
 			{selected ? <Headlines country={selected} /> : null}
