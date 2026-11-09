@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 // Each edit is a node. Undo moves to the parent and leaves that child in place.
 // Editing again adds a sibling, so the version you stepped away from stays reachable.
+// A new sibling with the same notes joins the existing one instead of sitting beside it.
 // Keystrokes on the same note fold into the current leaf until you pause.
 
 const COALESCE_MS = 650;
@@ -54,6 +55,19 @@ function cloneDoc(doc: Doc): Doc {
 	return { cards: doc.cards.map((card) => ({ ...card })) };
 }
 
+function docsEqual(a: Doc, b: Doc): boolean {
+	if (a.cards.length !== b.cards.length) return false;
+	return a.cards.every((card, index) => {
+		const other = b.cards[index];
+		return other != null && card.id === other.id && card.text === other.text;
+	});
+}
+
+/** Sibling that already holds this document, so a new copy would be a duplicate. */
+function matchingSibling(parent: HistNode, nodes: Record<string, HistNode>, doc: Doc, exceptId?: string): string | null {
+	return parent.childIds.find((id) => id !== exceptId && nodes[id] != null && docsEqual(nodes[id].doc, doc)) ?? null;
+}
+
 function snippet(text: string, max = 42): string {
 	const line = text.replace(/\s+/g, " ").trim();
 	if (!line) return "Empty";
@@ -92,6 +106,25 @@ function isSmallEdit(before: string, after: string): boolean {
 	return before.length - start - end <= 1 && after.length - start - end <= 1;
 }
 
+/** Drop a leaf that duplicated a sibling, and continue from the one that was already there. */
+function adoptSibling(state: Snapshot, dropId: string, siblingId: string): Snapshot {
+	const dropped = state.nodes[dropId];
+	const parent = dropped?.parentId ? state.nodes[dropped.parentId] : undefined;
+	if (!dropped || !parent || dropped.childIds.length > 0) return { ...state, ...visit(state, siblingId) };
+	const nodes: Record<string, HistNode> = {
+		...state.nodes,
+		[parent.id]: { ...parent, childIds: parent.childIds.filter((id) => id !== dropId) },
+	};
+	delete nodes[dropId];
+	const lastChild = { ...state.lastChild };
+	for (const key of Object.keys(lastChild)) {
+		if (lastChild[key] === dropId) delete lastChild[key];
+	}
+	delete lastChild[dropId];
+	const next: Snapshot = { nodes, currentId: state.currentId, lastChild };
+	return { ...next, ...visit(next, siblingId) };
+}
+
 function pushNode(
 	state: Snapshot,
 	draft: {
@@ -104,6 +137,8 @@ function pushNode(
 	},
 ): Snapshot {
 	const parent = state.nodes[state.currentId];
+	const existing = matchingSibling(parent, state.nodes, draft.doc);
+	if (existing) return { ...state, ...visit(state, existing) };
 	const id = crypto.randomUUID();
 	const node: HistNode = {
 		id,
@@ -199,6 +234,11 @@ export const useUndoStore = create<Store>((set, get) => ({
 
 		if (folding) {
 			const parent = current.parentId ? state.nodes[current.parentId] : undefined;
+			const match = parent ? matchingSibling(parent, state.nodes, doc, current.id) : null;
+			if (match) {
+				set(adoptSibling(state, current.id, match));
+				return;
+			}
 			const origin = parent?.doc.cards.find((card) => card.id === cardId)?.text ?? before;
 			const described = describeWrite(origin, text);
 			set({
