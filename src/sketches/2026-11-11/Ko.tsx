@@ -200,7 +200,10 @@ function Choice<T extends string | number>({
 export default function Ko() {
 	const engineRef = useRef<KoEngine | null>(null);
 	const playerRef = useRef<YouTubePlayer | null>(null);
-	const mountRef = useRef<HTMLDivElement>(null);
+	const playersRef = useRef<Array<YouTubePlayer | null>>(Array.from({ length: SLOTS }, () => null));
+	const mountsRef = useRef<Array<HTMLDivElement | null>>(Array.from({ length: SLOTS }, () => null));
+	const cueTimers = useRef<Array<ReturnType<typeof setTimeout> | undefined>>([]);
+	const slotRef = useRef(0);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const aliveRef = useRef(true);
 	const recordingRef = useRef(false);
@@ -208,10 +211,9 @@ export default function Ko() {
 	const playheadRef = useRef(-1);
 	const skipClick = useRef(false);
 	const hotTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const cueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const onPadRef = useRef<(pad: number) => void>(() => {});
 	const togglePlayRef = useRef<() => void>(() => {});
-	const onCueRef = useRef<(pad: number) => void>(() => {});
+	const onCueRef = useRef<(cues: { slot: number; pad: number }[]) => void>(() => {});
 	const epoch = useRef(0);
 	const dirty = useRef(false);
 	const skipSave = useRef(true);
@@ -219,6 +221,9 @@ export default function Ko() {
 
 	const [url, setUrl] = useState("");
 	const [videoId, setVideoId] = useState<string | null>(null);
+	const [videos, setVideos] = useState<Array<string | null>>(() =>
+		Array.from({ length: SLOTS }, () => null),
+	);
 	const [ready, setReady] = useState(false);
 	const [duration, setDuration] = useState(0);
 	const [scrub, setScrub] = useState(0);
@@ -251,6 +256,7 @@ export default function Ko() {
 
 	playheadRef.current = playhead;
 	scrubRef.current = scrub;
+	slotRef.current = slot;
 
 	const engine = engineRef.current;
 	if (engine) {
@@ -318,6 +324,9 @@ export default function Ko() {
 				const nextUrl = tape ? tape.url : song.url;
 				setUrl(nextUrl);
 				setVideoId(youtubeId(nextUrl));
+				setVideos(
+					Array.from({ length: SLOTS }, (_, index) => youtubeId(song.slots[index]?.url ?? "")),
+				);
 				setScrub(tape?.scrub ?? song.scrub);
 				setBars(song.bars);
 				setListen(song.listen);
@@ -336,9 +345,7 @@ export default function Ko() {
 				}
 				setSampleVersion((version) => version + 1);
 				setStatus(
-					shared
-						? "Shared song. Play runs the lit slot from its video."
-						: "Back where you left it.",
+					shared ? "Shared song. Play runs every slot from its video." : "Back where you left it.",
 				);
 			}
 			skipSave.current = true;
@@ -356,11 +363,8 @@ export default function Ko() {
 						setHot(hit.pads);
 						if (hotTimer.current != null) clearTimeout(hotTimer.current);
 						hotTimer.current = setTimeout(() => setHot([]), 100);
-						if (!ko.hasBuffer()) {
-							const pad = hit.pads[hit.pads.length - 1];
-							if (pad != null) onCueRef.current(pad);
-						}
 					}
+					if (hit.cues.length > 0) onCueRef.current(hit.cues);
 				}
 			}
 			frame = requestAnimationFrame(loop);
@@ -371,19 +375,22 @@ export default function Ko() {
 			aliveRef.current = false;
 			cancelAnimationFrame(frame);
 			if (hotTimer.current != null) clearTimeout(hotTimer.current);
-			if (cueTimer.current != null) clearTimeout(cueTimer.current);
+			for (const timer of cueTimers.current) {
+				if (timer != null) clearTimeout(timer);
+			}
 			ko.close();
 			engineRef.current = null;
 		};
 	}, []);
 
+	const line = videos.map((id) => id ?? "").join("|");
+
 	useEffect(() => {
-		const mount = mountRef.current;
-		if (!mount || !videoId) return;
-		let player: YouTubePlayer | null = null;
-		let cancelled = false;
-		mount.replaceChildren();
+		const ids = line.split("|").map((id) => id || null);
 		setReady(false);
+		if (!ids.some(Boolean)) return;
+		let cancelled = false;
+		const born: YouTubePlayer[] = [];
 
 		void (async () => {
 			try {
@@ -397,69 +404,78 @@ export default function Ko() {
 				if (!cancelled) setStatus("YouTube didn’t load. Check the connection.");
 				return;
 			}
-			if (cancelled || !mount.isConnected || !window.YT) return;
-			const slot = document.createElement("div");
-			mount.appendChild(slot);
-			player = new window.YT.Player(slot, {
-				videoId,
-				width: "100%",
-				height: "100%",
-				playerVars: {
-					autoplay: 0,
-					controls: 0,
-					disablekb: 1,
-					fs: 0,
-					modestbranding: 1,
-					rel: 0,
-					playsinline: 1,
-					iv_load_policy: 3,
-					origin: window.location.origin,
-				},
-				events: {
-					onReady: (event) => {
-						if (cancelled) return;
-						playerRef.current = event.target;
-						const length = event.target.getDuration();
-						if (length > 0) setDuration(length);
-						const at = scrubRef.current;
-						if (at > 0) event.target.seekTo(at, true);
-						setReady(true);
-						setStatus((current) =>
-							current === "Loading the video." || current === "Paste a YouTube link."
-								? "Find a moment, then sample."
-								: current,
-						);
+			if (cancelled || !window.YT) return;
+			ids.forEach((id, index) => {
+				const mount = mountsRef.current[index];
+				if (!id || !mount || !window.YT) return;
+				const holder = document.createElement("div");
+				mount.replaceChildren(holder);
+				const player = new window.YT.Player(holder, {
+					videoId: id,
+					width: "100%",
+					height: "100%",
+					playerVars: {
+						autoplay: 0,
+						controls: 0,
+						disablekb: 1,
+						fs: 0,
+						modestbranding: 1,
+						rel: 0,
+						playsinline: 1,
+						iv_load_policy: 3,
+						origin: window.location.origin,
 					},
-					onStateChange: (event) => {
-						if (cancelled) return;
-						const length = event.target.getDuration();
-						if (length > 0) setDuration(length);
-						if (recordingRef.current || cueingRef.current) return;
-						setPreviewing(event.data === 1);
+					events: {
+						onReady: (event) => {
+							if (cancelled) return;
+							playersRef.current[index] = event.target;
+							if (index !== slotRef.current) return;
+							playerRef.current = event.target;
+							const length = event.target.getDuration();
+							if (length > 0) setDuration(length);
+							const at = scrubRef.current;
+							if (at > 0) event.target.seekTo(at, true);
+							setReady(true);
+							setStatus((current) =>
+								current === "Loading the video." || current === "Paste a YouTube link."
+									? "Find a moment, then sample."
+									: current,
+							);
+						},
+						onStateChange: (event) => {
+							if (cancelled || index !== slotRef.current) return;
+							const length = event.target.getDuration();
+							if (length > 0) setDuration(length);
+							if (recordingRef.current || cueingRef.current) return;
+							setPreviewing(event.data === 1);
+						},
+						onError: (event) => {
+							if (cancelled || index !== slotRef.current) return;
+							const blocked = event.data === 101 || event.data === 150;
+							setReady(false);
+							setStatus(
+								blocked ? "This video can’t be embedded. Try another." : "That video didn’t load.",
+							);
+						},
 					},
-					onError: (event) => {
-						if (cancelled) return;
-						const blocked = event.data === 101 || event.data === 150;
-						setReady(false);
-						setStatus(
-							blocked ? "This video can’t be embedded. Try another." : "That video didn’t load.",
-						);
-					},
-				},
+				});
+				born.push(player);
 			});
 		})();
 
 		return () => {
 			cancelled = true;
 			playerRef.current = null;
-			try {
-				player?.destroy();
-			} catch {
-				/* player already gone */
+			for (let index = 0; index < SLOTS; index++) playersRef.current[index] = null;
+			for (const player of born) {
+				try {
+					player.destroy();
+				} catch {
+					/* player already gone */
+				}
 			}
-			mount.replaceChildren();
 		};
-	}, [videoId]);
+	}, [line]);
 
 	useEffect(() => {
 		if (!previewing || recording) return;
@@ -610,46 +626,67 @@ export default function Ko() {
 
 	function silenceVideo() {
 		cueingRef.current = false;
-		if (cueTimer.current != null) clearTimeout(cueTimer.current);
-		cueTimer.current = null;
-		try {
-			playerRef.current?.pauseVideo();
-		} catch {
-			/* player gone */
+		for (const timer of cueTimers.current) {
+			if (timer != null) clearTimeout(timer);
+		}
+		cueTimers.current = [];
+		for (const player of playersRef.current) {
+			try {
+				player?.pauseVideo();
+			} catch {
+				/* player gone */
+			}
 		}
 		if (aliveRef.current) setPreviewing(false);
 	}
 
-	function playCue(pad: number) {
-		const player = playerRef.current;
-		const ko = engineRef.current;
-		if (!player || !ko) return;
-		const cue = ko.cueFor(pad);
-		if (!cue) return;
-		const rate = nearestRate(ko.rateFor(pad));
-		cueingRef.current = true;
-		try {
-			player.unMute();
-			player.setVolume(100);
-			player.setPlaybackRate(rate);
-			player.seekTo(cue.start, true);
-			player.playVideo();
-		} catch {
-			cueingRef.current = false;
-			return;
+	function armPlayers() {
+		for (const player of playersRef.current) {
+			if (!player) continue;
+			try {
+				player.unMute();
+				player.setVolume(0);
+				player.playVideo();
+			} catch {
+				/* not ready */
+			}
 		}
-		if (cueTimer.current != null) clearTimeout(cueTimer.current);
-		cueTimer.current = setTimeout(
-			() => {
-				cueingRef.current = false;
-				try {
-					player.pauseVideo();
-				} catch {
-					/* player gone */
-				}
-			},
-			(cue.duration / rate) * 1000,
-		);
+	}
+
+	function playCues(cues: { slot: number; pad: number }[]) {
+		const ko = engineRef.current;
+		if (!ko) return;
+		for (const hit of cues) {
+			const player = playersRef.current[hit.slot];
+			const cue = ko.cueOn(hit.slot, hit.pad);
+			if (!player || !cue) continue;
+			const rate = nearestRate(cue.rate);
+			const onScreen = hit.slot === slotRef.current;
+			if (onScreen) cueingRef.current = true;
+			try {
+				player.unMute();
+				player.setVolume(100);
+				player.setPlaybackRate(rate);
+				player.seekTo(cue.start, true);
+				player.playVideo();
+			} catch {
+				if (onScreen) cueingRef.current = false;
+				continue;
+			}
+			const previous = cueTimers.current[hit.slot];
+			if (previous != null) clearTimeout(previous);
+			cueTimers.current[hit.slot] = setTimeout(
+				() => {
+					if (onScreen && !engineRef.current?.playing) cueingRef.current = false;
+					try {
+						player.setVolume(0);
+					} catch {
+						/* player gone */
+					}
+				},
+				(cue.duration / rate) * 1000,
+			);
+		}
 	}
 
 	function onPad(pad: number) {
@@ -672,7 +709,7 @@ export default function Ko() {
 			return;
 		}
 		if (ko.hasCues()) {
-			playCue(pad);
+			playCues([{ slot, pad }]);
 			flash([pad]);
 			return;
 		}
@@ -692,7 +729,10 @@ export default function Ko() {
 		ko.bpm = bpm;
 		ko.swing = swing;
 		ko.sync(slot, { pattern, mode, pitch, transpose, url, scrub });
+		cueingRef.current = true;
+		armPlayers();
 		ko.start();
+		setSeen(true);
 		setPlaying(true);
 	}
 
@@ -708,6 +748,7 @@ export default function Ko() {
 			engineRef.current?.stop();
 			setPlaying(false);
 			setPlayhead(-1);
+			silenceVideo();
 			setSeen(true);
 			player.unMute();
 			player.setVolume(100);
@@ -863,15 +904,29 @@ export default function Ko() {
 		setHasSample(tape.buffer != null);
 		setHasCues(tape.cues != null && tape.buffer == null);
 		setScrub(tape.scrub);
+		const nextPlayer = playersRef.current[index] ?? null;
+		playerRef.current = nextPlayer;
 		if (nextId !== videoId) {
-			silenceVideo();
+			if (!playing) silenceVideo();
 			setVideoId(nextId);
-			setReady(false);
-			setDuration(0);
 			setSeen(false);
-		} else {
+			if (nextPlayer) {
+				try {
+					const length = nextPlayer.getDuration();
+					setDuration(length > 0 ? length : 0);
+					setReady(length > 0);
+					if (!playing) nextPlayer.seekTo(tape.scrub, true);
+				} catch {
+					setReady(false);
+					setDuration(0);
+				}
+			} else {
+				setReady(false);
+				setDuration(0);
+			}
+		} else if (!playing) {
 			try {
-				playerRef.current?.seekTo(tape.scrub, true);
+				nextPlayer?.seekTo(tape.scrub, true);
 			} catch {
 				/* player not ready */
 			}
@@ -951,6 +1006,7 @@ export default function Ko() {
 		setPlayhead(-1);
 		setUrl("");
 		setVideoId(null);
+		setVideos(Array.from({ length: SLOTS }, () => null));
 		setReady(false);
 		setDuration(0);
 		setScrub(0);
@@ -981,7 +1037,7 @@ export default function Ko() {
 
 	onPadRef.current = onPad;
 	togglePlayRef.current = togglePlay;
-	onCueRef.current = playCue;
+	onCueRef.current = playCues;
 
 	const windowWidth =
 		duration > 0 ? (Math.min(sampleSeconds, Math.max(0, duration - scrub)) / duration) * 100 : 0;
@@ -1043,12 +1099,22 @@ export default function Ko() {
 										setDuration(0);
 										setSeen(false);
 									}
+									setVideos((current) => {
+										const nextIds = current.slice();
+										nextIds[slot] = null;
+										return nextIds;
+									});
 									return;
 								}
 								const id = youtubeId(next);
 								if (!id || id === videoId) return;
 								silenceVideo();
 								setVideoId(id);
+								setVideos((current) => {
+									const nextIds = current.slice();
+									nextIds[slot] = id;
+									return nextIds;
+								});
 								setReady(false);
 								setDuration(0);
 								setScrub(youtubeStart(next));
@@ -1064,21 +1130,28 @@ export default function Ko() {
 
 					<div className="mt-3 rounded-xl bg-[#e8873a] p-2 text-[#4a1608] shadow-[inset_0_0_0_1px_rgba(74,22,8,0.18)]">
 						<div className="relative h-32 overflow-hidden rounded-md bg-[#c94e12] sm:h-36">
-							{videoId ? (
-								<div
-									ref={mountRef}
-									className="absolute inset-0 [&_iframe]:pointer-events-none [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0 [&_iframe]:[filter:grayscale(1)_sepia(1)_saturate(4.5)_hue-rotate(350deg)_brightness(0.82)_contrast(1.05)]"
-								/>
-							) : null}
+							{videos.map((id, index) =>
+								id ? (
+									<div
+										key={`${index}:${id}`}
+										ref={(node) => {
+											mountsRef.current[index] = node;
+										}}
+										className={`absolute inset-0 [&_iframe]:pointer-events-none [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0 [&_iframe]:[filter:grayscale(1)_sepia(1)_saturate(4.5)_hue-rotate(350deg)_brightness(0.82)_contrast(1.05)] ${
+											index === slot ? "z-[1]" : "z-0"
+										}`}
+									/>
+								) : null,
+							)}
 							{videoId && !seen ? (
 								<img
 									src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
 									alt=""
-									className="pointer-events-none absolute inset-0 h-full w-full object-cover [filter:grayscale(1)_sepia(1)_saturate(4.5)_hue-rotate(350deg)_brightness(0.82)_contrast(1.05)]"
+									className="pointer-events-none absolute inset-0 z-[2] h-full w-full object-cover [filter:grayscale(1)_sepia(1)_saturate(4.5)_hue-rotate(350deg)_brightness(0.82)_contrast(1.05)]"
 								/>
 							) : null}
 							{videoId ? null : (
-								<div className="absolute inset-0 flex items-center justify-center px-6 text-center font-mono text-[11px] tracking-[0.18em] text-[#5c240c] uppercase">
+								<div className="absolute inset-0 z-[2] flex items-center justify-center px-6 text-center font-mono text-[11px] tracking-[0.18em] text-[#5c240c] uppercase">
 									Paste a link
 								</div>
 							)}
@@ -1422,8 +1495,9 @@ export default function Ko() {
 					<p className="max-w-sm leading-5">
 						All eight slots play together. The lit one is the track you are editing. Write punches a
 						pad onto the lit step. Keys 1–4, q–r, a–f, and z–v play the pads. Space starts and
-						stops. Each slot keeps its own video. Share copies a link to those videos, the chops,
-						and the patterns. Refresh keeps the recordings in this browser. Clear wipes the song.
+						stops. Each slot keeps its own video, and play runs them together. Share copies a link
+						to those videos, the chops, and the patterns. Refresh keeps the recordings in this
+						browser. Clear wipes the song.
 					</p>
 					<div className="flex gap-3">
 						<button type="button" onClick={shareSong} className="underline hover:text-slate-700">

@@ -58,6 +58,7 @@ export type SampleFailure = "denied" | "no-audio" | "silent" | "decode";
 export type Hit = {
 	step: number;
 	pads: number[];
+	cues: { slot: number; pad: number }[];
 	time: number;
 };
 
@@ -541,17 +542,28 @@ export class Ko {
 	}
 
 	cueFor(pad: number): Cue | null {
-		if (!this.cues || this.buffer) return null;
-		if (this.mode === "keys") {
-			const first = this.cues[0];
-			const last = this.cues[PADS - 1];
+		const cue = this.cueOn(this.slot, pad);
+		if (!cue) return null;
+		return { start: cue.start, duration: cue.duration };
+	}
+
+	/** Where a slot without a recording should play from its own video. */
+	cueOn(index: number, pad: number): { start: number; duration: number; rate: number } | null {
+		const tape = this.tapes[index];
+		if (!tape || tape.buffer || !tape.cues) return null;
+		if (tape.mode === "keys") {
+			const first = tape.cues[0];
+			const last = tape.cues[PADS - 1];
 			if (!first || !last) return null;
 			return {
 				start: first.start,
 				duration: Math.max(0.1, last.start + last.duration - first.start),
+				rate: 2 ** ((pad + tape.transpose) / 12),
 			};
 		}
-		return this.cues[pad] ?? null;
+		const cue = tape.cues[pad];
+		if (!cue) return null;
+		return { start: cue.start, duration: cue.duration, rate: pitchToRate(tape.pitch) };
 	}
 
 	rateFor(pad: number): number {
@@ -686,7 +698,8 @@ export class Ko {
 			latest = this.queue.shift() ?? null;
 		}
 		if (!latest) return null;
-		if (now - latest.time > 0.12) return { step: latest.step, pads: [], time: latest.time };
+		if (now - latest.time > 0.12)
+			return { step: latest.step, pads: [], cues: [], time: latest.time };
 		return latest;
 	}
 
@@ -713,16 +726,20 @@ export class Ko {
 
 	private fire(step: number, time: number) {
 		const pads: number[] = [];
+		const cues: { slot: number; pad: number }[] = [];
 		for (let index = 0; index < this.tapes.length; index++) {
 			const tape = this.tapes[index];
 			if (!tape) continue;
+			let cuePad = -1;
 			for (let pad = 0; pad < PADS; pad++) {
 				if (!tape.pattern[pad]?.[step]) continue;
 				if (index === this.slot) pads.push(pad);
 				if (tape.buffer) this.voice(tape, pad, time);
+				else if (tape.cues) cuePad = pad;
 			}
+			if (cuePad >= 0) cues.push({ slot: index, pad: cuePad });
 		}
-		this.queue.push({ step, pads, time });
+		this.queue.push({ step, pads, cues, time });
 	}
 
 	private voice(tape: Tape, pad: number, time: number) {
