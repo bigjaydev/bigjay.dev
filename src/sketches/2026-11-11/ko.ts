@@ -82,6 +82,8 @@ export type SlotRecord = {
 	mode: PlayMode;
 	pitch: number;
 	transpose: number;
+	url: string;
+	scrub: number;
 	window: TakeWindow | null;
 	audio: SlotAudio | null;
 };
@@ -93,6 +95,8 @@ type Tape = {
 	mode: PlayMode;
 	pitch: number;
 	transpose: number;
+	url: string;
+	scrub: number;
 	window: TakeWindow | null;
 	audio: SlotAudio | null;
 };
@@ -257,6 +261,8 @@ function blankTape(): Tape {
 		mode: "chop",
 		pitch: 0.5,
 		transpose: 0,
+		url: "",
+		scrub: 0,
 		window: null,
 		audio: null,
 	};
@@ -283,6 +289,8 @@ function tapeFrom(record: SlotRecord | undefined, ctx: AudioContext | null): Tap
 	tape.mode = record.mode === "keys" ? "keys" : "chop";
 	tape.pitch = Math.min(1, Math.max(0, record.pitch));
 	tape.transpose = Math.min(12, Math.max(-12, Math.round(record.transpose)));
+	tape.url = typeof record.url === "string" ? record.url : "";
+	tape.scrub = Number.isFinite(record.scrub) ? Math.max(0, record.scrub) : 0;
 	if (record.window && record.window.duration > 0) {
 		tape.window = { start: Math.max(0, record.window.start), duration: record.window.duration };
 		tape.cues = cuesFrom(tape.window);
@@ -316,6 +324,8 @@ export function emptySlots(): SlotRecord[] {
 		mode: "chop" as const,
 		pitch: 0.5,
 		transpose: 0,
+		url: "",
+		scrub: 0,
 		window: null,
 		audio: null,
 	}));
@@ -426,7 +436,14 @@ export class Ko {
 	 */
 	sync(
 		index: number,
-		editor: { pattern: boolean[][]; mode: PlayMode; pitch: number; transpose: number },
+		editor: {
+			pattern: boolean[][];
+			mode: PlayMode;
+			pitch: number;
+			transpose: number;
+			url: string;
+			scrub: number;
+		},
 	) {
 		const tape = this.tapes[index];
 		if (!tape) return;
@@ -434,6 +451,8 @@ export class Ko {
 		tape.mode = editor.mode;
 		tape.pitch = editor.pitch;
 		tape.transpose = editor.transpose;
+		tape.url = editor.url;
+		tape.scrub = editor.scrub;
 		this.slot = index;
 		this.buffer = tape.buffer;
 		this.cues = tape.cues;
@@ -454,7 +473,9 @@ export class Ko {
 	}
 
 	occupied(): boolean[] {
-		return this.tapes.map((tape) => tape.buffer != null || tape.cues != null);
+		return this.tapes.map(
+			(tape) => tape.buffer != null || tape.cues != null || youtubeId(tape.url) != null,
+		);
 	}
 
 	private tapeHasBuffer(index: number): boolean {
@@ -498,6 +519,8 @@ export class Ko {
 			mode: tape.mode,
 			pitch: tape.pitch,
 			transpose: tape.transpose,
+			url: tape.url,
+			scrub: tape.scrub,
 			window: tape.window ? { ...tape.window } : null,
 			audio: tape.audio ?? (tape.buffer ? audioFrom(tape.buffer) : null),
 		}));

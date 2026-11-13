@@ -215,6 +215,7 @@ export default function Ko() {
 	const epoch = useRef(0);
 	const dirty = useRef(false);
 	const skipSave = useRef(true);
+	const scrubRef = useRef(0);
 
 	const [url, setUrl] = useState("");
 	const [videoId, setVideoId] = useState<string | null>(null);
@@ -249,13 +250,14 @@ export default function Ko() {
 	const [booted, setBooted] = useState(false);
 
 	playheadRef.current = playhead;
+	scrubRef.current = scrub;
 
 	const engine = engineRef.current;
 	if (engine) {
 		engine.bpm = bpm;
 		engine.swing = swing;
 		engine.setCutoff(toneToHz(tone));
-		engine.sync(slot, { pattern, mode, pitch, transpose });
+		engine.sync(slot, { pattern, mode, pitch, transpose, url, scrub });
 	}
 
 	const draft = useRef({
@@ -312,9 +314,11 @@ export default function Ko() {
 			if (!aliveRef.current) return;
 			if (song) {
 				ko.install(song.slots, song.slot);
-				setUrl(song.url);
-				setVideoId(youtubeId(song.url));
-				setScrub(song.scrub);
+				const tape = song.slots[song.slot];
+				const nextUrl = tape ? tape.url : song.url;
+				setUrl(nextUrl);
+				setVideoId(youtubeId(nextUrl));
+				setScrub(tape?.scrub ?? song.scrub);
 				setBars(song.bars);
 				setListen(song.listen);
 				setBpm(song.bpm);
@@ -322,7 +326,6 @@ export default function Ko() {
 				setTone(song.tone);
 				setSlot(song.slot);
 				setSelected(song.selected);
-				const tape = song.slots[song.slot];
 				if (tape) {
 					setPattern(tape.pattern.map((row) => row.slice()));
 					setMode(tape.mode);
@@ -334,7 +337,7 @@ export default function Ko() {
 				setSampleVersion((version) => version + 1);
 				setStatus(
 					shared
-						? "Shared song. Play runs the lit slot from the video."
+						? "Shared song. Play runs the lit slot from its video."
 						: "Back where you left it.",
 				);
 			}
@@ -418,6 +421,8 @@ export default function Ko() {
 						playerRef.current = event.target;
 						const length = event.target.getDuration();
 						if (length > 0) setDuration(length);
+						const at = scrubRef.current;
+						if (at > 0) event.target.seekTo(at, true);
 						setReady(true);
 						setStatus((current) =>
 							current === "Loading the video." || current === "Paste a YouTube link."
@@ -525,6 +530,8 @@ export default function Ko() {
 				mode: snap.mode,
 				pitch: snap.pitch,
 				transpose: snap.transpose,
+				url: snap.url,
+				scrub: snap.scrub,
 			});
 			void saveSession({
 				url: snap.url,
@@ -575,6 +582,8 @@ export default function Ko() {
 				mode: snap.mode,
 				pitch: snap.pitch,
 				transpose: snap.transpose,
+				url: snap.url,
+				scrub: snap.scrub,
 			});
 			void saveSession({
 				url: snap.url,
@@ -682,7 +691,7 @@ export default function Ko() {
 		}
 		ko.bpm = bpm;
 		ko.swing = swing;
-		ko.sync(slot, { pattern, mode, pitch, transpose });
+		ko.sync(slot, { pattern, mode, pitch, transpose, url, scrub });
 		ko.start();
 		setPlaying(true);
 	}
@@ -839,18 +848,38 @@ export default function Ko() {
 
 	function chooseSlot(index: number) {
 		if (index === slot || recordingRef.current) return;
-		const tape = engineRef.current?.read(index);
+		const ko = engineRef.current;
+		if (!ko) return;
+		ko.sync(slot, { pattern, mode, pitch, transpose, url, scrub });
+		const tape = ko.read(index);
 		if (!tape) return;
+		const nextId = youtubeId(tape.url);
 		setSlot(index);
+		setUrl(tape.url);
 		setPattern(tape.pattern);
 		setMode(tape.mode);
 		setPitch(tape.pitch);
 		setTranspose(tape.transpose);
 		setHasSample(tape.buffer != null);
 		setHasCues(tape.cues != null && tape.buffer == null);
-		if (tape.window) setScrub(tape.window.start);
+		setScrub(tape.scrub);
+		if (nextId !== videoId) {
+			silenceVideo();
+			setVideoId(nextId);
+			setReady(false);
+			setDuration(0);
+			setSeen(false);
+		} else {
+			try {
+				playerRef.current?.seekTo(tape.scrub, true);
+			} catch {
+				/* player not ready */
+			}
+		}
 		setSampleVersion((version) => version + 1);
-		setStatus(tape.buffer || tape.cues ? `Slot ${index + 1}.` : `Slot ${index + 1} is empty.`);
+		setStatus(
+			tape.buffer || tape.cues || nextId ? `Slot ${index + 1}.` : `Slot ${index + 1} is empty.`,
+		);
 	}
 
 	function chooseMode(next: PlayMode) {
@@ -875,7 +904,7 @@ export default function Ko() {
 	function shareSong() {
 		const ko = engineRef.current;
 		if (!ko) return;
-		ko.sync(slot, { pattern, mode, pitch, transpose });
+		ko.sync(slot, { pattern, mode, pitch, transpose, url, scrub });
 		const slots = ko.capture();
 		const song: SongRecord = {
 			url,
@@ -889,9 +918,12 @@ export default function Ko() {
 			selected,
 			slots: slots.map((item) => ({ ...item, audio: null })),
 		};
-		const hasSong =
-			youtubeId(url) != null ||
-			slots.some((item) => item.window != null || item.pattern.some((row) => row.some(Boolean)));
+		const hasSong = slots.some(
+			(item) =>
+				youtubeId(item.url) != null ||
+				item.window != null ||
+				item.pattern.some((row) => row.some(Boolean)),
+		);
 		if (!hasSong) {
 			setStatus("Add a video or a pattern first.");
 			return;
@@ -1003,13 +1035,23 @@ export default function Ko() {
 							onChange={(event) => {
 								const next = event.target.value;
 								setUrl(next);
+								if (next.trim() === "") {
+									if (videoId) {
+										silenceVideo();
+										setVideoId(null);
+										setReady(false);
+										setDuration(0);
+										setSeen(false);
+									}
+									return;
+								}
 								const id = youtubeId(next);
 								if (!id || id === videoId) return;
+								silenceVideo();
 								setVideoId(id);
 								setReady(false);
 								setDuration(0);
 								setScrub(youtubeStart(next));
-								setPreviewing(false);
 								setSeen(false);
 								setStatus("Loading the video.");
 							}}
@@ -1380,8 +1422,8 @@ export default function Ko() {
 					<p className="max-w-sm leading-5">
 						All eight slots play together. The lit one is the track you are editing. Write punches a
 						pad onto the lit step. Keys 1–4, q–r, a–f, and z–v play the pads. Space starts and
-						stops. Share copies a link to the video, the chops, and the patterns. Refresh keeps the
-						recordings in this browser. Clear wipes the song.
+						stops. Each slot keeps its own video. Share copies a link to those videos, the chops,
+						and the patterns. Refresh keeps the recordings in this browser. Clear wipes the song.
 					</p>
 					<div className="flex gap-3">
 						<button type="button" onClick={shareSong} className="underline hover:text-slate-700">
