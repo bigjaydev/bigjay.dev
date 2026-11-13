@@ -3,6 +3,7 @@ import {
 	barsToSeconds,
 	delay,
 	emptyPattern,
+	emptySlots,
 	formatClock,
 	formatHz,
 	formatSemitone,
@@ -23,6 +24,14 @@ import {
 	type PlayMode,
 	type YouTubePlayer,
 } from "./ko";
+import {
+	clearSession,
+	decodeSong,
+	encodeSong,
+	loadSession,
+	saveSession,
+	type SongRecord,
+} from "./session";
 
 const YT_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -203,6 +212,9 @@ export default function Ko() {
 	const onPadRef = useRef<(pad: number) => void>(() => {});
 	const togglePlayRef = useRef<() => void>(() => {});
 	const onCueRef = useRef<(pad: number) => void>(() => {});
+	const epoch = useRef(0);
+	const dirty = useRef(false);
+	const skipSave = useRef(true);
 
 	const [url, setUrl] = useState("");
 	const [videoId, setVideoId] = useState<string | null>(null);
@@ -234,6 +246,7 @@ export default function Ko() {
 	const [hasCues, setHasCues] = useState(false);
 	const [sampleVersion, setSampleVersion] = useState(0);
 	const [status, setStatus] = useState("Paste a YouTube link.");
+	const [booted, setBooted] = useState(false);
 
 	playheadRef.current = playhead;
 
@@ -245,6 +258,37 @@ export default function Ko() {
 		engine.sync(slot, { pattern, mode, pitch, transpose });
 	}
 
+	const draft = useRef({
+		url,
+		scrub,
+		bars,
+		listen,
+		bpm,
+		swing,
+		tone,
+		slot,
+		selected,
+		pattern,
+		mode,
+		pitch,
+		transpose,
+	});
+	draft.current = {
+		url,
+		scrub,
+		bars,
+		listen,
+		bpm,
+		swing,
+		tone,
+		slot,
+		selected,
+		pattern,
+		mode,
+		pitch,
+		transpose,
+	};
+
 	const occupied = engine?.occupied() ?? Array.from({ length: SLOTS }, () => false);
 
 	const sampleSeconds = barsToSeconds(bars, bpm);
@@ -255,6 +299,48 @@ export default function Ko() {
 		const ko = new KoEngine();
 		engineRef.current = ko;
 		aliveRef.current = true;
+
+		void (async () => {
+			let shared: SongRecord | null = null;
+			let song: SongRecord | null = null;
+			try {
+				shared = decodeSong(location.hash);
+				song = shared ?? (await loadSession());
+			} catch {
+				song = null;
+			}
+			if (!aliveRef.current) return;
+			if (song) {
+				ko.install(song.slots, song.slot);
+				setUrl(song.url);
+				setVideoId(youtubeId(song.url));
+				setScrub(song.scrub);
+				setBars(song.bars);
+				setListen(song.listen);
+				setBpm(song.bpm);
+				setSwing(song.swing);
+				setTone(song.tone);
+				setSlot(song.slot);
+				setSelected(song.selected);
+				const tape = song.slots[song.slot];
+				if (tape) {
+					setPattern(tape.pattern.map((row) => row.slice()));
+					setMode(tape.mode);
+					setPitch(tape.pitch);
+					setTranspose(tape.transpose);
+					setHasSample(tape.audio != null);
+					setHasCues(tape.audio == null && tape.window != null);
+				}
+				setSampleVersion((version) => version + 1);
+				setStatus(
+					shared
+						? "Shared song. Play runs the lit slot from the video."
+						: "Back where you left it.",
+				);
+			}
+			skipSave.current = true;
+			setBooted(true);
+		})();
 
 		let frame = 0;
 		const loop = () => {
@@ -333,7 +419,11 @@ export default function Ko() {
 						const length = event.target.getDuration();
 						if (length > 0) setDuration(length);
 						setReady(true);
-						setStatus("Find a moment, then sample.");
+						setStatus((current) =>
+							current === "Loading the video." || current === "Paste a YouTube link."
+								? "Find a moment, then sample."
+								: current,
+						);
 					},
 					onStateChange: (event) => {
 						if (cancelled) return;
@@ -415,6 +505,93 @@ export default function Ko() {
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, []);
+
+	useEffect(() => {
+		if (!booted) return;
+		if (skipSave.current) {
+			skipSave.current = false;
+			return;
+		}
+		if (previewing || recording) return;
+		dirty.current = true;
+		const ticket = epoch.current;
+		const timer = window.setTimeout(() => {
+			if (ticket !== epoch.current || !dirty.current) return;
+			const ko = engineRef.current;
+			if (!ko) return;
+			const snap = draft.current;
+			ko.sync(snap.slot, {
+				pattern: snap.pattern,
+				mode: snap.mode,
+				pitch: snap.pitch,
+				transpose: snap.transpose,
+			});
+			void saveSession({
+				url: snap.url,
+				scrub: snap.scrub,
+				bars: snap.bars,
+				listen: snap.listen,
+				bpm: snap.bpm,
+				swing: snap.swing,
+				tone: snap.tone,
+				slot: snap.slot,
+				selected: snap.selected,
+				slots: ko.capture(),
+			}).catch(() => undefined);
+			if (location.hash.startsWith("#song=")) {
+				history.replaceState(null, "", `${location.pathname}${location.search}`);
+			}
+		}, 400);
+		return () => window.clearTimeout(timer);
+	}, [
+		booted,
+		previewing,
+		recording,
+		url,
+		scrub,
+		bars,
+		listen,
+		bpm,
+		swing,
+		tone,
+		slot,
+		selected,
+		pattern,
+		mode,
+		pitch,
+		transpose,
+		sampleVersion,
+	]);
+
+	useEffect(() => {
+		if (!booted) return;
+		const flush = () => {
+			if (!dirty.current) return;
+			const ko = engineRef.current;
+			if (!ko) return;
+			const snap = draft.current;
+			ko.sync(snap.slot, {
+				pattern: snap.pattern,
+				mode: snap.mode,
+				pitch: snap.pitch,
+				transpose: snap.transpose,
+			});
+			void saveSession({
+				url: snap.url,
+				scrub: snap.scrub,
+				bars: snap.bars,
+				listen: snap.listen,
+				bpm: snap.bpm,
+				swing: snap.swing,
+				tone: snap.tone,
+				slot: snap.slot,
+				selected: snap.selected,
+				slots: ko.capture(),
+			}).catch(() => undefined);
+		};
+		window.addEventListener("pagehide", flush);
+		return () => window.removeEventListener("pagehide", flush);
+	}, [booted]);
 
 	function flash(pads: number[]) {
 		setHot(pads);
@@ -605,7 +782,7 @@ export default function Ko() {
 
 			const buffer = await ko.record(stream, seconds);
 			if (!aliveRef.current) return;
-			ko.loadRecording(buffer, slotAtTake);
+			ko.loadRecording(buffer, slotAtTake, { start: startAt, duration: seconds });
 			setHasSample(ko.hasBuffer());
 			setHasCues(ko.hasCues());
 			setSampleVersion((version) => version + 1);
@@ -671,6 +848,7 @@ export default function Ko() {
 		setTranspose(tape.transpose);
 		setHasSample(tape.buffer != null);
 		setHasCues(tape.cues != null && tape.buffer == null);
+		if (tape.window) setScrub(tape.window.start);
 		setSampleVersion((version) => version + 1);
 		setStatus(tape.buffer || tape.cues ? `Slot ${index + 1}.` : `Slot ${index + 1} is empty.`);
 	}
@@ -694,6 +872,81 @@ export default function Ko() {
 		});
 	}
 
+	function shareSong() {
+		const ko = engineRef.current;
+		if (!ko) return;
+		ko.sync(slot, { pattern, mode, pitch, transpose });
+		const slots = ko.capture();
+		const song: SongRecord = {
+			url,
+			scrub,
+			bars,
+			listen,
+			bpm,
+			swing,
+			tone,
+			slot,
+			selected,
+			slots: slots.map((item) => ({ ...item, audio: null })),
+		};
+		const hasSong =
+			youtubeId(url) != null ||
+			slots.some((item) => item.window != null || item.pattern.some((row) => row.some(Boolean)));
+		if (!hasSong) {
+			setStatus("Add a video or a pattern first.");
+			return;
+		}
+		const link = `${location.origin}${location.pathname}${location.search}#${encodeSong(song)}`;
+		dirty.current = true;
+		void saveSession({ ...song, slots }).catch(() => undefined);
+		void navigator.clipboard.writeText(link).then(
+			() => setStatus("Link copied."),
+			() => {
+				location.hash = encodeSong(song);
+				setStatus("The link is in the address bar.");
+			},
+		);
+	}
+
+	function clearSong() {
+		epoch.current += 1;
+		dirty.current = false;
+		skipSave.current = true;
+		const ko = engineRef.current;
+		ko?.stop();
+		ko?.install(emptySlots(), 0);
+		setPlaying(false);
+		setPlayhead(-1);
+		setUrl("");
+		setVideoId(null);
+		setReady(false);
+		setDuration(0);
+		setScrub(0);
+		setPreviewing(false);
+		setSeen(false);
+		setListen("tab");
+		setBars(1);
+		setMode("chop");
+		setBpm(120);
+		setSwing(0);
+		setTone(1);
+		setPitch(0.5);
+		setTranspose(0);
+		setPattern(emptyPattern());
+		setSelected(0);
+		setSlot(0);
+		setWrite(false);
+		setHasSample(false);
+		setHasCues(false);
+		setHot([]);
+		setSampleVersion((version) => version + 1);
+		setStatus("Cleared.");
+		if (location.hash.startsWith("#song=")) {
+			history.replaceState(null, "", `${location.pathname}${location.search}`);
+		}
+		void clearSession().catch(() => undefined);
+	}
+
 	onPadRef.current = onPad;
 	togglePlayRef.current = togglePlay;
 	onCueRef.current = playCue;
@@ -706,6 +959,7 @@ export default function Ko() {
 			<div className="mx-auto w-full max-w-md">
 				<div
 					data-ko
+					data-booted={booted ? "true" : "false"}
 					data-playing={playing ? "true" : "false"}
 					data-recording={recording ? "true" : "false"}
 					data-ready={ready ? "true" : "false"}
@@ -851,7 +1105,7 @@ export default function Ko() {
 										: `×${pitchToRate(pitch).toFixed(2)}`}
 								</span>
 							</div>
-							<p aria-live="polite" className="mt-1 min-h-8 leading-4">
+							<p aria-live="polite" data-status={status} className="mt-1 min-h-8 leading-4">
 								{recording ? `Sampling ${recordLeft.toFixed(1)}s` : status}
 							</p>
 							{recording ? (
@@ -1122,19 +1376,28 @@ export default function Ko() {
 					</div>
 				</div>
 
-				<div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+				<div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
 					<p className="max-w-sm leading-5">
-						All eight slots play together. The lit one is the track you are editing: its sample,
-						pattern, and pitch stay on that slot. Write punches a pad onto the lit step. Keys 1–4,
-						q–r, a–f, and z–v play the pads. Space starts and stops.
+						All eight slots play together. The lit one is the track you are editing. Write punches a
+						pad onto the lit step. Keys 1–4, q–r, a–f, and z–v play the pads. Space starts and
+						stops. Share copies a link to the video, the chops, and the patterns. Refresh keeps the
+						recordings in this browser. Clear wipes the song.
 					</p>
-					<button
-						type="button"
-						onClick={() => setPattern(emptyPattern())}
-						className="underline hover:text-slate-700"
-					>
-						Clear pattern
-					</button>
+					<div className="flex gap-3">
+						<button type="button" onClick={shareSong} className="underline hover:text-slate-700">
+							Share
+						</button>
+						<button
+							type="button"
+							onClick={() => setPattern(emptyPattern())}
+							className="underline hover:text-slate-700"
+						>
+							Clear pattern
+						</button>
+						<button type="button" onClick={clearSong} className="underline hover:text-slate-700">
+							Clear
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>

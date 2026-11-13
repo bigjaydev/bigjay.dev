@@ -66,6 +66,26 @@ export type Cue = {
 	duration: number;
 };
 
+export type TakeWindow = {
+	start: number;
+	duration: number;
+};
+
+export type SlotAudio = {
+	sampleRate: number;
+	channels: Float32Array[];
+};
+
+/** One slot, with the recording when it lives in this browser. */
+export type SlotRecord = {
+	pattern: boolean[][];
+	mode: PlayMode;
+	pitch: number;
+	transpose: number;
+	window: TakeWindow | null;
+	audio: SlotAudio | null;
+};
+
 type Tape = {
 	buffer: AudioBuffer | null;
 	cues: Cue[] | null;
@@ -73,6 +93,8 @@ type Tape = {
 	mode: PlayMode;
 	pitch: number;
 	transpose: number;
+	window: TakeWindow | null;
+	audio: SlotAudio | null;
 };
 
 export class SampleError extends Error {
@@ -235,7 +257,68 @@ function blankTape(): Tape {
 		mode: "chop",
 		pitch: 0.5,
 		transpose: 0,
+		window: null,
+		audio: null,
 	};
+}
+
+function cuesFrom(take: TakeWindow): Cue[] {
+	const slice = take.duration / PADS;
+	return Array.from({ length: PADS }, (_, pad) => ({
+		start: take.start + pad * slice,
+		duration: slice,
+	}));
+}
+
+function tapeFrom(record: SlotRecord | undefined, ctx: AudioContext | null): Tape {
+	const tape = blankTape();
+	if (!record) return tape;
+	tape.pattern = Array.from({ length: PADS }, (_, pad) => {
+		const row = record.pattern[pad];
+		const next = Array<boolean>(STEPS).fill(false);
+		if (!row) return next;
+		for (let step = 0; step < STEPS; step++) next[step] = row[step] === true;
+		return next;
+	});
+	tape.mode = record.mode === "keys" ? "keys" : "chop";
+	tape.pitch = Math.min(1, Math.max(0, record.pitch));
+	tape.transpose = Math.min(12, Math.max(-12, Math.round(record.transpose)));
+	if (record.window && record.window.duration > 0) {
+		tape.window = { start: Math.max(0, record.window.start), duration: record.window.duration };
+		tape.cues = cuesFrom(tape.window);
+	}
+	const audio = record.audio;
+	const channels = audio?.channels ?? [];
+	const length = channels[0]?.length ?? 0;
+	if (ctx && audio && length > 0 && audio.sampleRate > 0) {
+		tape.audio = audio;
+		const buffer = ctx.createBuffer(channels.length, length, audio.sampleRate);
+		channels.forEach((channel, index) => {
+			buffer.getChannelData(index).set(channel.subarray(0, length));
+		});
+		tape.buffer = buffer;
+	}
+	return tape;
+}
+
+function audioFrom(buffer: AudioBuffer): SlotAudio {
+	return {
+		sampleRate: buffer.sampleRate,
+		channels: Array.from({ length: buffer.numberOfChannels }, (_, index) =>
+			buffer.getChannelData(index).slice(),
+		),
+	};
+}
+
+export function emptySlots(): SlotRecord[] {
+	return Array.from({ length: SLOTS }, () => ({
+		pattern: emptyPattern(),
+		mode: "chop" as const,
+		pitch: 0.5,
+		transpose: 0,
+		window: null,
+		audio: null,
+	}));
 }
 
 export function formatSemitone(steps: number): string {
@@ -279,11 +362,8 @@ export class Ko {
 	private step = 0;
 	private queue: Hit[] = [];
 
-	ensure(): AudioContext {
-		if (this.ctx) {
-			if (this.ctx.state === "suspended") void this.ctx.resume();
-			return this.ctx;
-		}
+	private context(): AudioContext {
+		if (this.ctx) return this.ctx;
 
 		const ctx = new AudioContext();
 		const filter = ctx.createBiquadFilter();
@@ -305,6 +385,12 @@ export class Ko {
 		this.ctx = ctx;
 		this.filter = filter;
 		this.master = master;
+		return ctx;
+	}
+
+	ensure(): AudioContext {
+		const ctx = this.context();
+		if (ctx.state === "suspended") void ctx.resume();
 		return ctx;
 	}
 
@@ -360,7 +446,11 @@ export class Ko {
 	read(index: number): Tape | null {
 		const tape = this.tapes[index];
 		if (!tape) return null;
-		return { ...tape, pattern: tape.pattern.map((row) => row.slice()) };
+		return {
+			...tape,
+			pattern: tape.pattern.map((row) => row.slice()),
+			window: tape.window ? { ...tape.window } : null,
+		};
 	}
 
 	occupied(): boolean[] {
@@ -371,31 +461,60 @@ export class Ko {
 		return this.tapes[index]?.buffer != null;
 	}
 
-	loadRecording(buffer: AudioBuffer, index = this.slot) {
+	loadRecording(buffer: AudioBuffer, index = this.slot, take?: TakeWindow) {
 		const tape = this.tapes[index];
 		if (tape) {
 			tape.buffer = buffer;
-			tape.cues = null;
+			tape.audio = audioFrom(buffer);
+			if (take && take.duration > 0) {
+				tape.window = { start: Math.max(0, take.start), duration: take.duration };
+				tape.cues = cuesFrom(tape.window);
+			}
 		}
 		if (index === this.slot) {
 			this.buffer = buffer;
-			this.cues = null;
+			this.cues = tape?.cues ?? null;
 		}
 	}
 
 	setCues(start: number, total: number, index = this.slot) {
 		if (this.tapeHasBuffer(index)) return;
-		const slice = total / PADS;
-		const cues = Array.from({ length: PADS }, (_, pad) => ({
-			start: start + pad * slice,
-			duration: slice,
-		}));
+		const take = { start: Math.max(0, start), duration: total };
+		const cues = cuesFrom(take);
 		const tape = this.tapes[index];
-		if (tape) tape.cues = cues;
+		if (tape) {
+			tape.cues = cues;
+			tape.window = take;
+		}
 		if (index === this.slot) {
 			this.buffer = null;
 			this.cues = cues;
 		}
+	}
+
+	capture(): SlotRecord[] {
+		return this.tapes.map((tape) => ({
+			pattern: tape.pattern.map((row) => row.slice()),
+			mode: tape.mode,
+			pitch: tape.pitch,
+			transpose: tape.transpose,
+			window: tape.window ? { ...tape.window } : null,
+			audio: tape.audio ?? (tape.buffer ? audioFrom(tape.buffer) : null),
+		}));
+	}
+
+	install(records: SlotRecord[], index: number) {
+		const needsAudio = records.some((record) => (record?.audio?.channels[0]?.length ?? 0) > 0);
+		const ctx = needsAudio ? this.context() : null;
+		this.tapes = Array.from({ length: SLOTS }, (_, slot) => tapeFrom(records[slot], ctx));
+		this.slot = Math.min(SLOTS - 1, Math.max(0, index));
+		const current = this.tapes[this.slot];
+		this.buffer = current?.buffer ?? null;
+		this.cues = current?.cues ?? null;
+		this.pattern = current?.pattern ?? emptyPattern();
+		this.mode = current?.mode ?? "chop";
+		this.pitch = current?.pitch ?? 0.5;
+		this.transpose = current?.transpose ?? 0;
 	}
 
 	cueFor(pad: number): Cue | null {
