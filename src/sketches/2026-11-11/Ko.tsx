@@ -208,6 +208,7 @@ export default function Ko() {
 	const aliveRef = useRef(true);
 	const recordingRef = useRef(false);
 	const cueingRef = useRef(false);
+	const hearRef = useRef(false);
 	const playheadRef = useRef(-1);
 	const skipClick = useRef(false);
 	const hotTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -344,9 +345,7 @@ export default function Ko() {
 					setHasCues(tape.audio == null && tape.window != null);
 				}
 				setSampleVersion((version) => version + 1);
-				setStatus(
-					shared ? "Shared song. Play runs every slot from its video." : "Back where you left it.",
-				);
+				setStatus(shared ? "Shared song." : "Back where you left it.");
 			}
 			skipSave.current = true;
 			setBooted(true);
@@ -435,6 +434,13 @@ export default function Ko() {
 							if (length > 0) setDuration(length);
 							const at = scrubRef.current;
 							if (at > 0) event.target.seekTo(at, true);
+							if (!hearRef.current && !cueingRef.current) {
+								try {
+									event.target.pauseVideo();
+								} catch {
+									/* player not ready to pause */
+								}
+							}
 							setReady(true);
 							setStatus((current) =>
 								current === "Loading the video." || current === "Paste a YouTube link."
@@ -447,6 +453,14 @@ export default function Ko() {
 							const length = event.target.getDuration();
 							if (length > 0) setDuration(length);
 							if (recordingRef.current || cueingRef.current) return;
+							if (event.data === 1 && !hearRef.current) {
+								try {
+									event.target.pauseVideo();
+								} catch {
+									/* player not ready to pause */
+								}
+								return;
+							}
 							setPreviewing(event.data === 1);
 						},
 						onError: (event) => {
@@ -626,6 +640,7 @@ export default function Ko() {
 
 	function silenceVideo() {
 		cueingRef.current = false;
+		hearRef.current = false;
 		for (const timer of cueTimers.current) {
 			if (timer != null) clearTimeout(timer);
 		}
@@ -741,6 +756,7 @@ export default function Ko() {
 		if (!player || recordingRef.current) return;
 		try {
 			if (player.getPlayerState() === 1) {
+				hearRef.current = false;
 				player.pauseVideo();
 				setPreviewing(false);
 				return;
@@ -750,6 +766,7 @@ export default function Ko() {
 			setPlayhead(-1);
 			silenceVideo();
 			setSeen(true);
+			hearRef.current = true;
 			player.unMute();
 			player.setVolume(100);
 			player.seekTo(scrub, true);
@@ -971,25 +988,31 @@ export default function Ko() {
 			tone,
 			slot,
 			selected,
-			slots: slots.map((item) => ({ ...item, audio: null })),
+			slots,
 		};
 		const hasSong = slots.some(
 			(item) =>
 				youtubeId(item.url) != null ||
 				item.window != null ||
+				item.audio != null ||
 				item.pattern.some((row) => row.some(Boolean)),
 		);
 		if (!hasSong) {
 			setStatus("Add a video or a pattern first.");
 			return;
 		}
-		const link = `${location.origin}${location.pathname}${location.search}#${encodeSong(song)}`;
+		const encoded = encodeSong(song);
+		if (encoded.length > 1_500_000) {
+			setStatus("That song is too big to share.");
+			return;
+		}
+		const link = `${location.origin}${location.pathname}${location.search}#${encoded}`;
 		dirty.current = true;
-		void saveSession({ ...song, slots }).catch(() => undefined);
+		void saveSession(song).catch(() => undefined);
 		void navigator.clipboard.writeText(link).then(
 			() => setStatus("Link copied."),
 			() => {
-				location.hash = encodeSong(song);
+				location.hash = encoded;
 				setStatus("The link is in the address bar.");
 			},
 		);
@@ -1496,8 +1519,8 @@ export default function Ko() {
 						All eight slots play together. The lit one is the track you are editing. Write punches a
 						pad onto the lit step. Keys 1–4, q–r, a–f, and z–v play the pads. Space starts and
 						stops. Each slot keeps its own video, and play runs them together. Share copies a link
-						to those videos, the chops, and the patterns. Refresh keeps the recordings in this
-						browser. Clear wipes the song.
+						to the whole song, recordings included. Refresh keeps this browser’s copy. Clear wipes
+						the song.
 					</p>
 					<div className="flex gap-3">
 						<button type="button" onClick={shareSong} className="underline hover:text-slate-700">
