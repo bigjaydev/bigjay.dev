@@ -113,10 +113,34 @@ export type Side = "you" | "brine";
 export type Verdict = "hit" | "miss" | "foul";
 export type Source = "model" | "referee" | "foul";
 
+export const TURN_OPENERS = [
+	"How appropriate",
+	"At least",
+	"Says the",
+	"And yet",
+	"Big talk",
+	"Funny",
+	"Odd",
+] as const;
+
+export interface Path {
+	id: "length" | "land" | "fresh";
+	met: boolean;
+	detail: string;
+}
+
+export interface Note {
+	verdict: Verdict;
+	why: string;
+	paths: Path[];
+}
+
 export interface Call {
 	verdict: Verdict;
 	reaction: string;
 	source: Source;
+	why: string;
+	paths: Path[];
 }
 
 export function createDeck(rng: () => number): string[] {
@@ -169,30 +193,63 @@ export function isBlocked(text: string): boolean {
 	return false;
 }
 
-export function localVerdict(insult: string, reply: string): Verdict {
-	if (isBlocked(reply)) return "foul";
+export function hookLine(insult: string): string {
+	const found = content(words(insult))
+		.filter((word) => word.length >= 4)
+		.slice(0, 4);
+	if (found.length === 0) return "one of his words";
+	if (found.length === 1) return found[0] ?? "one of his words";
+	return `${found.slice(0, -1).join(", ")}, or ${found[found.length - 1]}`;
+}
+
+export function judgeNote(insult: string, reply: string): Note {
+	if (isBlocked(reply)) return { verdict: "foul", why: FOUL, paths: [] };
 	const replyWords = words(reply);
-	if (replyWords.length < 4) return "miss";
-	const insultContent = content(words(insult));
+	const insultWords = words(insult);
+	const insultContent = content(insultWords);
 	const replyContent = content(replyWords);
-	if (insultContent.length > 0) {
-		const shared = insultContent.filter((word) => replyContent.includes(word));
-		if (
-			shared.length / insultContent.length >= 0.75 &&
-			replyWords.length <= words(insult).length + 1
-		) {
-			return "miss";
-		}
-	}
+	const hooks = hookLine(insult);
+	const caughtWord = caught(insultContent, replyContent);
 	const aimed = replyWords.some((word) => AIM.has(word));
-	const echoed = overlaps(insultContent, replyContent);
-	const turned = /^(how appropriate|at least|says the|and yet|big talk|funny|odd)\b/i.test(
-		reply.trim(),
+	const turn = TURN_OPENERS.find((opener) =>
+		new RegExp(`^${opener.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(reply.trim()),
 	);
-	if (turned && replyWords.length >= 4) return "hit";
-	if (aimed && (replyWords.length >= 5 || echoed)) return "hit";
-	if (echoed && replyWords.length >= 6) return "hit";
-	return "miss";
+	const shared = insultContent.filter((word) => replyContent.includes(word));
+	const parrot =
+		insultContent.length > 0 &&
+		shared.length / insultContent.length >= 0.75 &&
+		replyWords.length <= insultWords.length + 1;
+	const lengthMet = replyWords.length >= 4;
+	const landMet = Boolean(turn) || aimed || Boolean(caughtWord);
+	const freshMet = !parrot;
+	const lengthDetail = lengthMet
+		? `${replyWords.length} words, past the minimum of 4.`
+		: `Only ${replyWords.length} ${replyWords.length === 1 ? "word" : "words"}. Add words until it reaches 4.`;
+	const landDetail = turn
+		? `Opens with ${turn}.`
+		: aimed && caughtWord
+			? `Says you or your, and reuses ${caughtWord}.`
+			: aimed
+				? "Says you or your."
+				: caughtWord
+					? `Reuses ${caughtWord}.`
+					: `No you or your, and none of ${hooks}. Add one of those.`;
+	const freshDetail = freshMet
+		? "Not a copy of his line."
+		: `Too close to his line. Rewrite it, and keep ${hooks} or you.`;
+	const paths: Path[] = [
+		{ id: "length", met: lengthMet, detail: lengthDetail },
+		{ id: "land", met: landMet, detail: landDetail },
+		{ id: "fresh", met: freshMet, detail: freshDetail },
+	];
+	const hit = lengthMet && landMet && freshMet;
+	const misses = paths.filter((path) => !path.met).map((path) => path.detail);
+	const why = hit ? `${landDetail} That's a touch.` : misses.join(" ");
+	return { verdict: hit ? "hit" : "miss", why, paths };
+}
+
+export function localVerdict(insult: string, reply: string): Verdict {
+	return judgeNote(insult, reply).verdict;
 }
 
 export function cleanInsult(raw: string): string | null {
@@ -253,18 +310,20 @@ export function settle(
 	modelRaw: string | null,
 	rng: () => number,
 ): Call {
-	const local = localVerdict(insult, reply);
-	if (local === "foul") return { verdict: "foul", reaction: FOUL, source: "foul" };
-	if (!modelRaw)
-		return { verdict: local, reaction: scriptedReaction(local, rng), source: "referee" };
-	const parsed = parseModelCall(modelRaw);
-	if (!parsed.verdict)
-		return { verdict: local, reaction: scriptedReaction(local, rng), source: "referee" };
-	if (parsed.verdict === "hit" && local !== "hit") {
-		return { verdict: "miss", reaction: scriptedReaction("miss", rng), source: "referee" };
-	}
-	const reaction = parsed.reaction || scriptedReaction(parsed.verdict, rng);
-	return { verdict: parsed.verdict, reaction, source: "model" };
+	const note = judgeNote(insult, reply);
+	if (note.verdict === "foul")
+		return { verdict: "foul", reaction: FOUL, source: "foul", why: note.why, paths: [] };
+	const parsed = modelRaw ? parseModelCall(modelRaw) : { verdict: null, reaction: "" };
+	const verdict = note.verdict === "hit" ? "hit" : "miss";
+	const agreed = parsed.verdict === verdict && parsed.reaction;
+	const reaction = agreed ? parsed.reaction : scriptedReaction(verdict, rng);
+	return {
+		verdict,
+		reaction,
+		source: agreed ? "model" : "referee",
+		why: note.why,
+		paths: note.paths,
+	};
 }
 
 export function applyMarks(
@@ -347,14 +406,14 @@ function content(tokens: string[]): string[] {
 	return tokens.filter((word) => word.length >= 3 && !STOP.has(word) && !AIM.has(word));
 }
 
-function overlaps(left: string[], right: string[]): boolean {
+function caught(left: string[], right: string[]): string | null {
 	for (const a of left) {
 		for (const b of right) {
-			if (a === b) return true;
-			if (a.length >= 5 && b.length >= 5 && a.slice(0, 4) === b.slice(0, 4)) return true;
+			if (a === b) return a;
+			if (a.length >= 5 && b.length >= 5 && a.slice(0, 4) === b.slice(0, 4)) return a;
 		}
 	}
-	return false;
+	return null;
 }
 
 function normalize(text: string): string {

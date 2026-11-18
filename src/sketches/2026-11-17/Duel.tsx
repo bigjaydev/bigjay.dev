@@ -10,6 +10,7 @@ import {
 	avoidWords,
 	cleanInsult,
 	createDeck,
+	hookLine,
 	insultPrompt,
 	isBlocked,
 	judgePrompt,
@@ -18,16 +19,20 @@ import {
 	scriptedReaction,
 	settle,
 	tooClose,
+	TURN_OPENERS,
 	winnerLine,
 	type Call,
+	type Path,
 	type Side,
 	type Source,
 } from "./duel";
-import { openBrine, type BrineSession, type BrineTurn } from "./brine";
+import { modelIsSaved, openBrine, type BrineSession, type BrineTurn } from "./brine";
 import { DOWNLOAD_LABEL, loadFailure, MODEL_FILE, MODEL_NAME } from "./protocol";
+import { DuelStage, type Pose } from "./sprites";
 
 type Origin = "model" | "deck";
 type Busy = "judge" | "insult" | null;
+type Beat = "rest" | "brine" | "you" | "hit" | "miss";
 
 type Exchange = {
 	id: number;
@@ -36,11 +41,13 @@ type Exchange = {
 	reaction: string;
 	verdict: "hit" | "miss";
 	source: Source;
+	why: string;
+	paths: Path[];
 };
 
 type Engine =
 	| { phase: "idle" }
-	| { phase: "loading"; pct: number; file: string }
+	| { phase: "loading"; pct: number; file: string; kept: boolean }
 	| { phase: "ready" }
 	| { phase: "error"; message: string };
 
@@ -90,7 +97,10 @@ export default function Duel() {
 	const [liveInsult, setLiveInsult] = useState<string | null>(null);
 	const [banner, setBanner] = useState<string | null>(null);
 	const [swing, setSwing] = useState(0);
+	const [hints, setHints] = useState(false);
+	const [beat, setBeat] = useState<Beat>("brine");
 	const [engine, setEngine] = useState<Engine>({ phase: "idle" });
+	const [saved, setSaved] = useState(false);
 
 	useEffect(() => {
 		return () => {
@@ -102,15 +112,34 @@ export default function Duel() {
 	}, []);
 
 	useEffect(() => {
+		let live = true;
+		void modelIsSaved().then((yes) => {
+			if (live) setSaved(yes);
+		});
+		return () => {
+			live = false;
+		};
+	}, []);
+
+	useEffect(() => {
 		const node = logRef.current;
 		if (!node) return;
 		node.scrollTop = node.scrollHeight;
 	}, [log]);
 
+	useEffect(() => {
+		if (beat !== "brine") return;
+		const timer = window.setTimeout(() => {
+			setBeat((current) => (current === "brine" ? "rest" : current));
+		}, 1500);
+		return () => window.clearTimeout(timer);
+	}, [beat, insult]);
+
 	function showInsult(line: string, origin: Origin) {
 		insultRef.current = line;
 		setInsult(line);
 		setFrom(origin);
+		setBeat("brine");
 	}
 
 	function draw(): string {
@@ -135,10 +164,11 @@ export default function Duel() {
 		void sessionRef.current?.exit();
 		sessionRef.current = null;
 		readyRef.current = false;
-		setEngine({ phase: "loading", pct: 0, file: MODEL_FILE });
+		setEngine({ phase: "loading", pct: 0, file: MODEL_FILE, kept: false });
 		try {
-			const session = await openBrine((pct) => {
-				setEngine((prev) => (prev.phase === "loading" ? { ...prev, pct } : prev));
+			const session = await openBrine((pct, kept) => {
+				setEngine((prev) => (prev.phase === "loading" ? { ...prev, pct, kept } : prev));
+				if (kept) setSaved(true);
 			});
 			sessionRef.current = session;
 			readyRef.current = true;
@@ -262,6 +292,7 @@ export default function Duel() {
 			setBanner(FOUL);
 			return;
 		}
+		setBeat("you");
 		const token = life.current;
 		const current = insultRef.current;
 		busyRef.current = true;
@@ -270,8 +301,8 @@ export default function Duel() {
 		setBanner(null);
 		setLiveReply(text);
 		setLiveCall("");
+		setBusy("judge");
 		const usingModel = readyRef.current && sessionRef.current != null;
-		if (usingModel) setBusy("judge");
 
 		let modelRaw: string | null = null;
 		if (usingModel) {
@@ -290,6 +321,8 @@ export default function Duel() {
 				console.error(error);
 				modelRaw = null;
 			}
+		} else {
+			await pause(420);
 		}
 		if (life.current !== token) return;
 
@@ -299,10 +332,12 @@ export default function Duel() {
 			busyRef.current = false;
 			setBusy(null);
 			setLiveReply(null);
+			setBeat("rest");
 			setBanner(result.reaction);
 			return;
 		}
 		const reaction = result.reaction || scriptedReaction(verdict, Math.random);
+		setBeat(verdict === "hit" ? "hit" : "miss");
 		const next = applyMarks(youRef.current, brineRef.current, verdict);
 		youRef.current = next.you;
 		brineRef.current = next.brine;
@@ -323,6 +358,8 @@ export default function Duel() {
 				reaction,
 				verdict,
 				source: result.source,
+				why: result.why,
+				paths: result.paths,
 			},
 		]);
 		lineId.current += 1;
@@ -332,6 +369,9 @@ export default function Duel() {
 			setBusy(null);
 			return;
 		}
+		await pause(1000);
+		if (life.current !== token) return;
+		setBeat("brine");
 		if (readyRef.current && sessionRef.current) {
 			await takeDeck(token, true);
 		} else {
@@ -369,6 +409,7 @@ export default function Duel() {
 		setLiveCall("");
 		setLiveInsult(null);
 		setSwing(0);
+		setBeat("brine");
 		setBanner(readyRef.current ? "The model has the deck." : null);
 		if (readyRef.current && sessionRef.current) {
 			busyRef.current = true;
@@ -392,8 +433,7 @@ export default function Duel() {
 		busy === "insult"
 			? liveInsult || "Choosing the next insult…"
 			: insult || "Choosing the next insult…";
-	const attacker: Side | null =
-		call?.verdict === "hit" ? "you" : call?.verdict === "miss" ? "brine" : null;
+	const picture = pictureOf(beat, winner, busy);
 
 	return (
 		<div
@@ -407,10 +447,6 @@ export default function Duel() {
 			data-from={from}
 		>
 			<style>{`
-				@keyframes duel-lunge-you { 40% { transform: translateX(12px); } }
-				@keyframes duel-lunge-brine { 40% { transform: translateX(-12px); } }
-				@keyframes duel-flinch-you { 35% { transform: translateX(-8px) rotate(-7deg); } }
-				@keyframes duel-flinch-brine { 35% { transform: translateX(8px) rotate(7deg); } }
 				[data-duel] button:not(:disabled) { cursor: pointer; }
 				[data-duel] button:focus-visible, [data-duel] input:focus-visible {
 					outline: 2px solid #f25c1d;
@@ -427,6 +463,17 @@ export default function Duel() {
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							aria-pressed={hints}
+							onClick={() => setHints((open) => !open)}
+							className={cn(
+								"rounded-full px-3 py-2 text-xs",
+								hints ? "bg-[#1c1d21] text-white" : "bg-[#f3f5f7] text-[#5c6370]",
+							)}
+						>
+							Hints
+						</button>
 						<Chip engine={engine} />
 						<button
 							type="button"
@@ -440,26 +487,14 @@ export default function Duel() {
 					</div>
 				</header>
 
-				<div className="mt-6 flex items-end justify-between gap-2">
-					<Fighter
-						side="you"
-						name="You"
-						marks={you}
-						swing={swing}
-						lunge={attacker === "you"}
-						flinch={attacker === "brine"}
-					/>
-					<svg viewBox="0 0 32 32" className="mb-8 size-7 shrink-0 text-[#c9c3b8]" aria-hidden>
-						<path d="M7 6l18 20M25 6L7 26" fill="none" stroke="currentColor" strokeWidth="1.6" />
-					</svg>
-					<Fighter
-						side="brine"
-						name="Brine"
-						marks={brine}
-						swing={swing}
-						lunge={attacker === "brine"}
-						flinch={attacker === "you"}
-					/>
+				<DuelStage you={picture.you} brine={picture.brine} clash={picture.clash} swing={swing} />
+				<div className="mx-auto mt-3 flex w-full max-w-lg items-start px-3">
+					<div className="w-[44.7%]">
+						<Score side="you" name="You" marks={you} />
+					</div>
+					<div className="flex w-[55.3%] justify-end">
+						<Score side="brine" name="Brine" marks={brine} />
+					</div>
 				</div>
 
 				<p className="mt-6 text-[10px] tracking-[0.16em] text-[#9aa1ab] uppercase">
@@ -501,10 +536,13 @@ export default function Duel() {
 							<p className="mt-1 text-lg leading-snug" style={{ fontFamily: SPOKEN }}>
 								{call.reaction}
 							</p>
+							{hints && <Grade paths={call.paths} />}
 						</div>
 					) : (
 						<p className="text-sm leading-6 text-[#5c6370]">
-							Answer him in a full sentence. Throw his words, or the word you, back at him.
+							{hints
+								? "A touch needs all three checks below. A miss costs you a mark."
+								: "Answer him in a full sentence. Hints shows what scores a touch."}
 						</p>
 					)}
 					{banner && (
@@ -513,6 +551,8 @@ export default function Duel() {
 						</p>
 					)}
 				</div>
+
+				{hints && <Rules insult={insult} />}
 
 				{winner ? (
 					<button
@@ -581,17 +621,18 @@ export default function Duel() {
 									</span>
 									{item.reaction}
 								</p>
+								{hints && <p className="mt-1 text-sm leading-5 text-[#5c6370]">{item.why}</p>}
 							</li>
 						))}
 					</ol>
 				)}
 
-				<EngineBar engine={engine} onLoad={() => void startLoad()} />
+				<EngineBar engine={engine} saved={saved} onLoad={() => void startLoad()} />
 			</div>
 			<p className="mx-auto mt-4 max-w-3xl px-1 text-[11px] leading-5 text-[#9aa1ab]">
-				He insults, you answer. A thin reply costs you a point, and one that turns it around costs
-				him a point. Three down ends it. {MODEL_NAME} runs in this tab, about {DOWNLOAD_LABEL},
-				through llama.cpp. If it cannot start, the understudy keeps the deck.
+				A miss costs you a mark, a touch costs him one, and three down ends it. Hints lists the
+				three checks. {MODEL_NAME} runs in this tab, about {DOWNLOAD_LABEL}, through llama.cpp. If
+				it cannot start, the understudy keeps the deck.
 			</p>
 		</div>
 	);
@@ -611,46 +652,62 @@ function Chip({ engine }: { engine: Engine }) {
 	);
 }
 
-function Fighter({
-	side,
-	name,
-	marks,
-	swing,
-	lunge,
-	flinch,
-}: {
-	side: Side;
-	name: string;
-	marks: number;
-	swing: number;
-	lunge: boolean;
-	flinch: boolean;
-}) {
-	const anim = lunge
-		? side === "you"
-			? "motion-safe:animate-[duel-lunge-you_0.5s_ease]"
-			: "motion-safe:animate-[duel-lunge-brine_0.5s_ease]"
-		: flinch
-			? side === "you"
-				? "motion-safe:animate-[duel-flinch-you_0.5s_ease]"
-				: "motion-safe:animate-[duel-flinch-brine_0.5s_ease]"
-			: "";
+function pause(ms: number) {
+	return new Promise((resolve) => {
+		window.setTimeout(resolve, ms);
+	});
+}
+
+function pictureOf(
+	beat: Beat,
+	winner: Side | null,
+	busy: Busy,
+): { you: Pose; brine: Pose; clash: boolean } {
+	if (winner === "you" || beat === "hit") return { you: "lunge", brine: "flinch", clash: true };
+	if (winner === "brine" || beat === "miss") return { you: "flinch", brine: "lunge", clash: true };
+	if (beat === "you") return { you: "talk", brine: "idle", clash: false };
+	if (beat === "brine" || busy === "insult") return { you: "idle", brine: "talk", clash: false };
+	return { you: "idle", brine: "idle", clash: false };
+}
+
+function Rules({ insult }: { insult: string }) {
+	const hooks = insult ? hookLine(insult) : "one of his words";
 	return (
-		<div
-			className={cn(
-				"flex w-[42%] flex-col",
-				side === "brine" ? "items-end text-right" : "items-start",
-			)}
-		>
-			<svg
-				key={`${side}-${swing}`}
-				viewBox="0 0 100 120"
-				className={cn("h-24 w-20 sm:h-28 sm:w-24", anim)}
-				aria-hidden
-			>
-				{side === "you" ? <YouArt /> : <BrineArt />}
-			</svg>
-			<p className="font-space-grotesk mt-2 text-lg leading-none">{name}</p>
+		<div className="mt-4 rounded-2xl bg-[#f3f5f7] px-4 py-3 text-sm leading-6 text-[#5c6370]">
+			<p className="text-[10px] tracking-[0.16em] text-[#9aa1ab] uppercase">
+				A touch needs all three
+			</p>
+			<ul className="mt-1 list-disc space-y-1 pl-4">
+				<li>Four words or more.</li>
+				<li>
+					It lands on him. Say you or your. Reuse {hooks}. Or open with {TURN_OPENERS.join(", ")}.
+				</li>
+				<li>It is not a copy of his line. A copy misses even if the other two pass.</li>
+			</ul>
+		</div>
+	);
+}
+
+function Grade({ paths }: { paths: Path[] }) {
+	if (paths.length === 0) return null;
+	return (
+		<ul className="mt-3 space-y-1">
+			{paths.map((path) => (
+				<li key={path.id} className="text-sm leading-5">
+					<span className={path.met ? "text-[#1f6f5b]" : "text-[#c4552a]"}>
+						{path.met ? "Met. " : "Missing. "}
+					</span>
+					<span className="text-[#5c6370]">{path.detail}</span>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+function Score({ side, name, marks }: { side: Side; name: string; marks: number }) {
+	return (
+		<div className={cn("flex flex-col", side === "brine" ? "items-end text-right" : "items-start")}>
+			<p className="font-space-grotesk text-lg leading-none">{name}</p>
 			<p className="mt-2 flex gap-1.5" aria-label={`${name}, ${marks} of ${MARKS} left`}>
 				{Array.from({ length: MARKS }, (_, index) => (
 					<span
@@ -666,66 +723,56 @@ function Fighter({
 	);
 }
 
-function YouArt() {
-	return (
-		<g fill="#1c1d21">
-			<path d="M22 40 46 18l30 18-5 6-22-12-20 12z" />
-			<path d="M30 36h34" stroke="#fecef5" strokeWidth="5" />
-			<circle cx="48" cy="48" r="12" />
-			<path d="M28 62h40l8 48H22z" />
-			<path d="M68 74h26" stroke="#1c1d21" strokeWidth="3" fill="none" />
-			<path d="M90 68l8 6-8 6" fill="none" stroke="#1c1d21" strokeWidth="3" />
-		</g>
-	);
-}
-
-function BrineArt() {
-	return (
-		<g fill="#1c1d21">
-			<path d="M78 42 54 8 30 38l6 6 16-18 18 14z" />
-			<path d="M50 14c10-12 18-8 14 4" fill="#fecef5" />
-			<circle cx="52" cy="50" r="12" />
-			<path d="M32 64h40l6 46H26z" />
-			<path d="M32 76H8" stroke="#1c1d21" strokeWidth="3" fill="none" />
-			<path d="M12 70 4 76l8 6" fill="none" stroke="#1c1d21" strokeWidth="3" />
-			<circle cx="80" cy="74" r="7" fill="#fecef5" />
-			<path d="M86 74h7" stroke="#1c1d21" strokeWidth="2" />
-		</g>
-	);
-}
-
-function EngineBar({ engine, onLoad }: { engine: Engine; onLoad: () => void }) {
+function EngineBar({
+	engine,
+	saved,
+	onLoad,
+}: {
+	engine: Engine;
+	saved: boolean;
+	onLoad: () => void;
+}) {
 	return (
 		<div className="mt-5 border-t border-[#e6e9ee] pt-4 text-sm leading-6 text-[#5c6370]">
 			{engine.phase === "idle" && (
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<p className="max-w-md">
-						The understudy has the deck. The lines are practised, and the page keeps the score.
+						{saved
+							? "The model is already saved in this browser."
+							: "The understudy has the deck. The lines are practised, and the page keeps the score."}
 					</p>
 					<button
 						type="button"
 						onClick={onLoad}
 						className="shrink-0 rounded-full bg-[#1c1d21] px-4 py-2 text-sm text-white"
 					>
-						Load the model · about {DOWNLOAD_LABEL}
+						{saved ? "Load the saved model" : `Load the model · about ${DOWNLOAD_LABEL}`}
 					</button>
 				</div>
 			)}
 			{engine.phase === "idle" && (
 				<p className="mt-2 text-xs text-[#9aa1ab]">
-					About {DOWNLOAD_LABEL}, then it runs in this tab. No WebGPU and no key.
+					{saved
+						? "A refresh uses that copy. It runs in this tab, with no WebGPU and no key."
+						: `About ${DOWNLOAD_LABEL} the first time, then it stays in this browser. No WebGPU and no key.`}
 				</p>
 			)}
 			{engine.phase === "loading" && (
 				<div>
-					<p>{engine.pct >= 100 ? "Starting the model…" : `Fetching the model… ${engine.pct}%`}</p>
+					<p>
+						{engine.kept
+							? "Opening the saved model…"
+							: engine.pct >= 100
+								? "Starting the model…"
+								: `Fetching the model… ${engine.pct}%`}
+					</p>
 					<div
 						className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e6e9ee]"
 						role="progressbar"
 						aria-valuenow={engine.pct}
 						aria-valuemin={0}
 						aria-valuemax={100}
-						aria-label="Model download"
+						aria-label={engine.kept ? "Opening the saved model" : "Model download"}
 					>
 						<div className="h-full bg-[#1f6f5b]" style={{ width: `${engine.pct}%` }} />
 					</div>
@@ -737,7 +784,8 @@ function EngineBar({ engine, onLoad }: { engine: Engine; onLoad: () => void }) {
 			)}
 			{engine.phase === "ready" && (
 				<p>
-					{MODEL_NAME} is in this tab. Insults and the calls are his. Nothing leaves the browser.
+					{MODEL_NAME} is in this tab, and the file stays saved in this browser. The insults are
+					his. The score follows the three checks. Nothing leaves the browser.
 				</p>
 			)}
 			{engine.phase === "error" && (
@@ -748,7 +796,7 @@ function EngineBar({ engine, onLoad }: { engine: Engine; onLoad: () => void }) {
 						onClick={onLoad}
 						className="shrink-0 rounded-full bg-[#1c1d21] px-4 py-2 text-sm text-white"
 					>
-						Try the model again
+						{saved ? "Load the saved model" : "Try the model again"}
 					</button>
 				</div>
 			)}
