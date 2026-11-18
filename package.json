@@ -21,6 +21,7 @@
     "@tailwindcss/vite": "^4.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@wllama/wllama": "^3.13.0",
     "astro": "^6.3.3",
     "lucide-astro": "^0.556.0",
     "lucide-react": "^0.556.0",
