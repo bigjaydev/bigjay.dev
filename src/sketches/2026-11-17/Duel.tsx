@@ -99,7 +99,12 @@ export default function Duel() {
 	const [swing, setSwing] = useState(0);
 	const [hints, setHints] = useState(false);
 	const [beat, setBeat] = useState<Beat>("brine");
-	const [engine, setEngine] = useState<Engine>({ phase: "idle" });
+	const [engine, setEngine] = useState<Engine>({
+		phase: "loading",
+		pct: 0,
+		file: MODEL_FILE,
+		kept: false,
+	});
 	const [saved, setSaved] = useState(false);
 
 	useEffect(() => {
@@ -161,32 +166,43 @@ export default function Duel() {
 	async function startLoad() {
 		if (loadingRef.current) return;
 		loadingRef.current = true;
+		const token = life.current;
 		void sessionRef.current?.exit();
 		sessionRef.current = null;
 		readyRef.current = false;
 		setEngine({ phase: "loading", pct: 0, file: MODEL_FILE, kept: false });
 		try {
 			const session = await openBrine((pct, kept) => {
+				if (life.current !== token) return;
 				setEngine((prev) => (prev.phase === "loading" ? { ...prev, pct, kept } : prev));
 				if (kept) setSaved(true);
 			});
+			if (life.current !== token) {
+				await session.exit().catch(() => undefined);
+				return;
+			}
 			sessionRef.current = session;
 			readyRef.current = true;
 			setEngine({ phase: "ready" });
 			setBanner("The model has the deck.");
 			if (!busyRef.current && !winnerRef.current && draftRef.current.trim() === "") {
-				void takeDeck(life.current, false);
+				void takeDeck(token, false);
 			}
 		} catch (error) {
 			console.error(error);
+			if (life.current !== token) return;
 			readyRef.current = false;
 			sessionRef.current = null;
 			const message = error instanceof Error ? error.message : "The model did not start.";
 			setEngine({ phase: "error", message: loadFailure(message) });
 		} finally {
-			loadingRef.current = false;
+			if (life.current === token) loadingRef.current = false;
 		}
 	}
+
+	useEffect(() => {
+		void startLoad();
+	}, []);
 
 	function ask(
 		messages: BrineTurn[],
@@ -783,14 +799,21 @@ function EngineBar({
 								: `Fetching the model… ${engine.pct}%`}
 					</p>
 					<div
-						className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e6e9ee]"
+						className="mt-2 h-2 overflow-hidden rounded-full bg-[#e6e9ee]"
 						role="progressbar"
-						aria-valuenow={engine.pct}
+						aria-valuenow={engine.kept ? undefined : engine.pct}
 						aria-valuemin={0}
 						aria-valuemax={100}
 						aria-label={engine.kept ? "Opening the saved model" : "Model download"}
 					>
-						<div className="h-full bg-[#1f6f5b]" style={{ width: `${engine.pct}%` }} />
+						<div
+							className={cn(
+								"h-full bg-[#1f6f5b]",
+								engine.kept && "w-full animate-pulse",
+								!engine.kept && "transition-[width] duration-150",
+							)}
+							style={engine.kept ? undefined : { width: `${engine.pct}%` }}
+						/>
 					</div>
 					<p className="mt-1 truncate text-xs text-[#9aa1ab]">{engine.file}</p>
 					<p className="mt-1 text-xs text-[#9aa1ab]">
