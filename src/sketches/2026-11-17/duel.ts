@@ -2,7 +2,12 @@ export const MARKS = 3;
 
 export const INSULT_PERSONA = `You are Captain Brine, a comic pirate. Insult the sailor in front of you. Playful only: hats, boots, swords, footwork, coats, courage, parrots, maps, or timing. No slurs, no sex, no real violence. One sentence, under 18 words, spoken to them. Use you or your. No labels and no quotation marks.`;
 
-export const JUDGE_PERSONA = "Reply with one word: HIT or MISS.";
+export const JUDGE_PERSONA = `You judge whether a reply comes back at the insult just spoken. Reply in exactly two lines:
+answers: yes or no
+insult: yes or no
+answers is yes only when the reply answers what he just said. Using one of his words is no.
+insult is yes only when the reply itself insults him. A plain remark is no.
+Saying what something is, what color it is, or what it has is answers: no and insult: no.`;
 
 export const SUBJECTS = [
 	"hat",
@@ -124,7 +129,7 @@ export const TURN_OPENERS = [
 ] as const;
 
 export interface Path {
-	id: "length" | "land" | "fresh";
+	id: "length" | "land" | "fresh" | "answers" | "insult";
 	met: boolean;
 	detail: string;
 }
@@ -165,9 +170,21 @@ Write a different insult about the sailor's ${subject}.${ban}`;
 }
 
 export function judgePrompt(insult: string, reply: string): string {
-	return `Insult: ${fence(insult)}
+	return `Insult: Your coat has seen more courage than you have.
+Comeback: Then your courage left with the coat.
+answers: yes
+insult: yes
+Insult: Your coat has seen more courage than you have.
+Comeback: Your boots could wake the harbour.
+answers: no
+insult: yes
+Insult: Your coat has seen more courage than you have.
+Comeback: Your coat is blue.
+answers: no
+insult: no
+Insult: ${fence(insult)}
 Comeback: ${fence(reply)}
-Verdict:`;
+answers:`;
 }
 
 export function winnerLine(winner: Side): string {
@@ -234,9 +251,7 @@ export function judgeNote(insult: string, reply: string): Note {
 				: caughtWord
 					? `Reuses ${caughtWord}.`
 					: `No you or your, and none of ${hooks}. Add one of those.`;
-	const freshDetail = freshMet
-		? "Not a copy of his line."
-		: `Too close to his line. Rewrite it, and keep ${hooks} or you.`;
+	const freshDetail = freshMet ? "Not a copy of his line." : "Too close to his line. Rewrite it.";
 	const paths: Path[] = [
 		{ id: "length", met: lengthMet, detail: lengthDetail },
 		{ id: "land", met: landMet, detail: landDetail },
@@ -280,49 +295,121 @@ export function cleanInsult(raw: string): string | null {
 	return sentence;
 }
 
-export function parseModelCall(raw: string): { verdict: "hit" | "miss" | null; reaction: string } {
-	const text = raw.replace(/<\|[^|>]*\|>/g, " ").trim();
-	const lines = text
-		.split(/\n+/)
-		.map((line) => line.trim())
-		.filter(Boolean);
-	const lead = lines.find((line) => /^(hit|miss)\b/i.test(line)) ?? lines[0] ?? "";
-	const match = lead.match(/^(hit|miss)\b\s*[:\-–—]?\s*(.*)$/i);
-	if (!match) return { verdict: null, reaction: "" };
-	const verdict = match[1]?.toLowerCase() === "hit" ? "hit" : "miss";
-	let reaction = firstSentence((match[2] ?? "").trim());
-	reaction = reaction.replace(/^(hit|miss)\b\s*[:\-–—]?\s*/i, "").trim();
-	if (
-		!reaction ||
-		isBlocked(reaction) ||
-		echoed(reaction) ||
-		words(reaction).length < 2 ||
-		reaction.length > 160
-	) {
-		return { verdict, reaction: "" };
-	}
-	return { verdict, reaction };
+export function parseReading(raw: string): { answers: boolean | null; insult: boolean | null } {
+	const text = raw
+		.replace(/<\|[^|>]*\|>/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	const body = /\banswers\b/i.test(text) ? text : `answers: ${text}`;
+	return { answers: yesNo(body, "answers"), insult: yesNo(body, "insult") };
 }
+
+export function plainRemark(reply: string): boolean {
+	const text = reply
+		.trim()
+		.replace(/[.!?]+$/g, "")
+		.replace(/\s+/g, " ");
+	const described =
+		/^(?:your|his|her|my|its|the|that|this)\s+[\w']+\s+(?:is|are|was|were|'s|looks|seems)\s+(?:a|an|the\s+)?[\w']+$/i;
+	const has =
+		/^(?:your|his|her|my|the|that|this)\s+[\w']+\s+(?:has|have)\s+(?:a|an|the|some)\s+[\w']+(?:\s+on\s+it)?$/i;
+	return described.test(text) || has.test(text);
+}
+
+function yesNo(text: string, label: string): boolean | null {
+	const match = text.match(new RegExp(`\\b${label}\\b\\s*[:=\\-]?\\s*(yes|no)\\b`, "i"));
+	if (!match?.[1]) return null;
+	return match[1].toLowerCase() === "yes";
+}
+
+const PLAIN = "That only describes something. Come back at what he said, and make it an insult.";
+const UNREAD = "He did not return a reading. Come back at what he said, and make it an insult.";
+const NEITHER = "It does not come back at what he said, and it is not an insult.";
+const ASIDE = "It insults him, but it does not come back at what he said.";
 
 export function settle(
 	insult: string,
 	reply: string,
 	modelRaw: string | null,
 	rng: () => number,
+	asked = false,
 ): Call {
 	const note = judgeNote(insult, reply);
 	if (note.verdict === "foul")
 		return { verdict: "foul", reaction: FOUL, source: "foul", why: note.why, paths: [] };
-	const parsed = modelRaw ? parseModelCall(modelRaw) : { verdict: null, reaction: "" };
-	const verdict = note.verdict === "hit" ? "hit" : "miss";
-	const agreed = parsed.verdict === verdict && parsed.reaction;
-	const reaction = agreed ? parsed.reaction : scriptedReaction(verdict, rng);
+	if (plainRemark(reply)) {
+		return {
+			verdict: "miss",
+			reaction: scriptedReaction("miss", rng),
+			source: "referee",
+			why: PLAIN,
+			paths: [
+				{
+					id: "answers",
+					met: false,
+					detail: "It only describes something. It does not come back at what he said.",
+				},
+				{ id: "insult", met: false, detail: "A description is not an insult." },
+			],
+		};
+	}
+	if (!asked) {
+		const paths = note.paths.filter((path) => path.id !== "land");
+		const verdict = paths.every((path) => path.met) ? "hit" : "miss";
+		const why = paths
+			.filter((path) => !path.met)
+			.map((path) => path.detail)
+			.join(" ");
+		return {
+			verdict,
+			reaction: scriptedReaction(verdict, rng),
+			source: "referee",
+			why,
+			paths,
+		};
+	}
+	const reading = parseReading(modelRaw ?? "");
+	const answers = reading.answers === true;
+	const insulting = reading.insult === true;
+	const heard = reading.answers != null || reading.insult != null;
+	const verdict = answers && insulting ? "hit" : "miss";
+	const why =
+		verdict === "hit"
+			? "It comes back at what he said, and it insults him. That's a touch."
+			: !heard
+				? UNREAD
+				: answers
+					? "It answers him, but it is not an insult."
+					: insulting
+						? ASIDE
+						: NEITHER;
+	const paths: Path[] = [
+		...note.paths.filter((path) => path.id === "length" || path.id === "fresh"),
+		{
+			id: "answers",
+			met: answers,
+			detail: answers
+				? "Comes back at what he said."
+				: reading.answers === false
+					? "Does not come back at what he said. One of his words is not an answer."
+					: "He did not say if it answers him.",
+		},
+		{
+			id: "insult",
+			met: insulting,
+			detail: insulting
+				? "It insults him."
+				: reading.insult === false
+					? "It is not an insult."
+					: "He did not say if it is an insult.",
+		},
+	];
 	return {
 		verdict,
-		reaction,
-		source: agreed ? "model" : "referee",
-		why: note.why,
-		paths: note.paths,
+		reaction: scriptedReaction(verdict, rng),
+		source: heard ? "model" : "referee",
+		why,
+		paths,
 	};
 }
 

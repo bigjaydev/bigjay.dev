@@ -10,16 +10,16 @@ import {
 	avoidWords,
 	cleanInsult,
 	createDeck,
-	hookLine,
 	insultPrompt,
 	isBlocked,
+	judgeNote,
 	judgePrompt,
+	plainRemark,
 	liveSpeech,
 	localVerdict,
 	scriptedReaction,
 	settle,
 	tooClose,
-	TURN_OPENERS,
 	winnerLine,
 	type Call,
 	type Path,
@@ -303,19 +303,32 @@ export default function Duel() {
 		setLiveCall("");
 		setBusy("judge");
 		const usingModel = readyRef.current && sessionRef.current != null;
+		const shape = judgeNote(current, text);
+		const lengthMet = shape.paths.find((path) => path.id === "length")?.met === true;
+		const freshMet = shape.paths.find((path) => path.id === "fresh")?.met === true;
+		const askModel =
+			usingModel && !plainRemark(text) && shape.verdict !== "foul" && lengthMet && freshMet;
 
 		let modelRaw: string | null = null;
-		if (usingModel) {
+		if (!usingModel) {
+			await pause(420);
+			if (life.current !== token) return;
+			setBeat("rest");
+			setLiveReply(null);
+			setLiveCall("");
+			setBanner("Load the model. He judges whether it comes back at what he said.");
+			busyRef.current = false;
+			setBusy(null);
+			return;
+		}
+		if (askModel) {
 			try {
 				modelRaw = await ask(
 					[
 						{ role: "system", content: JUDGE_PERSONA },
 						{ role: "user", content: judgePrompt(current, text) },
 					],
-					{ temperature: 0, maxNewTokens: 6 },
-					(chunk) => {
-						if (life.current === token) setLiveCall(liveSpeech(chunk, "call"));
-					},
+					{ temperature: 0, maxNewTokens: 32 },
 				);
 			} catch (error) {
 				console.error(error);
@@ -326,7 +339,7 @@ export default function Duel() {
 		}
 		if (life.current !== token) return;
 
-		const result = settle(current, text, modelRaw, Math.random);
+		const result = settle(current, text, modelRaw, Math.random, askModel);
 		const verdict = result.verdict;
 		if (verdict === "foul") {
 			busyRef.current = false;
@@ -541,7 +554,9 @@ export default function Duel() {
 					) : (
 						<p className="text-sm leading-6 text-[#5c6370]">
 							{hints
-								? "A touch needs all three checks below. A miss costs you a mark."
+								? engine.phase === "ready"
+									? "He reads the line. A touch has to come back at what he said, and insult him."
+									: "Load the model. He judges whether it comes back at what he said."
 								: "Answer him in a full sentence. Hints shows what scores a touch."}
 						</p>
 					)}
@@ -552,7 +567,7 @@ export default function Duel() {
 					)}
 				</div>
 
-				{hints && <Rules insult={insult} />}
+				{hints && <Rules judged={engine.phase === "ready"} />}
 
 				{winner ? (
 					<button
@@ -630,9 +645,10 @@ export default function Duel() {
 				<EngineBar engine={engine} saved={saved} onLoad={() => void startLoad()} />
 			</div>
 			<p className="mx-auto mt-4 max-w-3xl px-1 text-[11px] leading-5 text-[#9aa1ab]">
-				A miss costs you a mark, a touch costs him one, and three down ends it. Hints lists the
-				three checks. {MODEL_NAME} runs in this tab, about {DOWNLOAD_LABEL}, through llama.cpp. If
-				it cannot start, the understudy keeps the deck.
+				A miss costs you a mark, a touch costs him one, and three down ends it. {MODEL_NAME} reads
+				the line and scores it only when it comes back at what he said and insults him. It runs in
+				this tab, about {DOWNLOAD_LABEL}, through llama.cpp. If it cannot start, the understudy
+				keeps the deck and the score stays put.
 			</p>
 		</div>
 	);
@@ -670,20 +686,20 @@ function pictureOf(
 	return { you: "idle", brine: "idle", clash: false };
 }
 
-function Rules({ insult }: { insult: string }) {
-	const hooks = insult ? hookLine(insult) : "one of his words";
+function Rules({ judged }: { judged: boolean }) {
 	return (
 		<div className="mt-4 rounded-2xl bg-[#f3f5f7] px-4 py-3 text-sm leading-6 text-[#5c6370]">
-			<p className="text-[10px] tracking-[0.16em] text-[#9aa1ab] uppercase">
-				A touch needs all three
-			</p>
+			<p className="text-[10px] tracking-[0.16em] text-[#9aa1ab] uppercase">He reads the line</p>
 			<ul className="mt-1 list-disc space-y-1 pl-4">
 				<li>Four words or more.</li>
-				<li>
-					It lands on him. Say you or your. Reuse {hooks}. Or open with {TURN_OPENERS.join(", ")}.
-				</li>
-				<li>It is not a copy of his line. A copy misses even if the other two pass.</li>
+				<li>It is not a copy of his line.</li>
+				<li>It comes back at what he just said, and it insults him. A description misses.</li>
 			</ul>
+			<p className="mt-2">
+				{judged
+					? "Saying what it is, or what it has, does not score. He still has to call it a comeback and an insult."
+					: "Load the model. Until he can read, a line does not score."}
+			</p>
 		</div>
 	);
 }
@@ -778,14 +794,15 @@ function EngineBar({
 					</div>
 					<p className="mt-1 truncate text-xs text-[#9aa1ab]">{engine.file}</p>
 					<p className="mt-1 text-xs text-[#9aa1ab]">
-						You can keep duelling the understudy while it loads.
+						You can answer him while it loads. Scoring starts once he can read the line.
 					</p>
 				</div>
 			)}
 			{engine.phase === "ready" && (
 				<p>
 					{MODEL_NAME} is in this tab, and the file stays saved in this browser. The insults are
-					his. The score follows the three checks. Nothing leaves the browser.
+					his. He scores a line only when it comes back at what he said and insults him. Nothing
+					leaves the browser.
 				</p>
 			)}
 			{engine.phase === "error" && (
