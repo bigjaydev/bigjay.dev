@@ -103,6 +103,7 @@ export default function Payphone() {
 	const [fileName, setFileName] = useState("");
 	const [trackMode, setTrackMode] = useState<"synth" | "file">("synth");
 	const [audioError, setAudioError] = useState("");
+	const modeRef = useRef(hud.mode);
 
 	function publish() {
 		const game = gameRef.current;
@@ -154,6 +155,13 @@ export default function Payphone() {
 			document.body.style.overflow = previousOverflow;
 		};
 	}, []);
+
+	useLayoutEffect(() => {
+		if (modeRef.current === "phone" && hud.mode !== "phone") {
+			wrapRef.current?.focus({ preventScroll: true });
+		}
+		modeRef.current = hud.mode;
+	}, [hud.mode]);
 
 	useEffect(() => {
 		const score = new Score();
@@ -431,6 +439,7 @@ export default function Payphone() {
 			{hud.mode === "phone" ? (
 				<div
 					className="absolute inset-0 z-30 flex items-center justify-center bg-black/65 p-3 pb-28"
+					onMouseDown={(event) => event.preventDefault()}
 					onClick={() => {
 						if (performance.now() < armRef.current) return;
 						const game = gameRef.current;
