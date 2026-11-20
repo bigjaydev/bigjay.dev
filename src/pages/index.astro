@@ -1,7 +1,8 @@
 ---
 import { getCollection } from "astro:content";
+import SketchThumb from "../components/SketchThumb";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { byNewest } from "../lib/sketches";
+import { byNewest, thumbnailLayers } from "../lib/sketches";
 
 const sketches = (await getCollection("sketches")).sort(byNewest);
 const latest = sketches[0];
@@ -17,7 +18,7 @@ const leftRail = "pl-[max(1.5rem,calc((100%-1080px)/2+2rem))]";
 ---
 
 <BaseLayout frontmatter={{ title: "bigjay.dev" }}>
-	<div class="paper-grain min-h-svh">
+	<div class="paper-grain min-h-svh overflow-x-hidden">
 		<header
 			class="mx-auto flex max-w-[1080px] items-start justify-between gap-8 px-6 py-6 sm:px-8 sm:py-8"
 		>
@@ -63,37 +64,40 @@ const leftRail = "pl-[max(1.5rem,calc((100%-1080px)/2+2rem))]";
 		<section class={`pt-12 pb-16 pr-0 sm:pt-16 ${leftRail}`}>
 			<ul class="space-y-16 sm:space-y-20">
 				{
-					sketches.map((sketch) => (
-						<li>
-							<a href={`/sketches/${sketch.id}/`} class="group block no-underline">
-								<div class="relative grid items-center gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] md:gap-0">
-									<div class="relative z-10 max-w-xl pr-6 sm:pr-8">
-										<span class="font-display text-steel-900 block text-4xl sm:text-5xl md:-mr-16 group-hover:opacity-80">
-											{sketch.data.title}
-										</span>
-										<span class="text-fg-muted mt-3 block max-w-md text-sm leading-relaxed">
-											{sketch.data.description}
-										</span>
-										<span class="font-meta text-steel-900 mt-5 inline-flex items-center gap-3 text-[11px]">
-											Open
-											<span class="bg-steel-900 h-px w-10" />
-										</span>
+					sketches.map((sketch) => {
+						const [back, mid, front] = thumbnailLayers(sketch.id);
+						return (
+							<li class="overflow-visible">
+								<a href={`/sketches/${sketch.id}/`} class="group block overflow-visible no-underline">
+									<div class="relative grid items-center gap-4 overflow-visible md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)] md:gap-8">
+										<div class="relative z-10 min-w-0 max-w-xl pr-6 sm:pr-8">
+											<span class="font-display text-steel-900 block text-4xl sm:text-5xl md:-mr-10 group-hover:opacity-80">
+												{sketch.data.title}
+											</span>
+											<span class="text-fg-muted mt-3 block max-w-sm text-sm leading-relaxed">
+												{sketch.data.description}
+											</span>
+											<span class="font-meta text-steel-900 mt-5 inline-flex items-center gap-3 text-[11px]">
+												<span class="translate-y-1 opacity-0 transition duration-400 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+													Open
+												</span>
+												<span class="bg-steel-900 h-px w-10 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100" />
+											</span>
+										</div>
+										<SketchThumb
+											client:visible
+											back={back}
+											mid={mid}
+											front={front}
+											day={dayNum(sketch.data.pubDate)}
+											monthYear={monthYear(sketch.data.pubDate)}
+											shortDate={shortDate(sketch.data.pubDate)}
+										/>
 									</div>
-									<span class="bg-bg-media text-fg-on-media relative block min-h-56 md:-ml-12 md:min-h-64">
-										<span class="date-stroke absolute top-1/2 left-6 -translate-y-1/2 text-6xl leading-none sm:text-7xl">
-											{dayNum(sketch.data.pubDate)}
-										</span>
-										<span class="font-meta absolute top-1/2 right-5 -translate-y-1/2 text-[11px] [writing-mode:vertical-rl]">
-											{monthYear(sketch.data.pubDate)}
-										</span>
-										<span class="font-meta absolute right-5 bottom-5 text-[11px]">
-											{shortDate(sketch.data.pubDate)}
-										</span>
-									</span>
-								</div>
-							</a>
-						</li>
-					))
+								</a>
+							</li>
+						);
+					})
 				}
 			</ul>
 		</section>

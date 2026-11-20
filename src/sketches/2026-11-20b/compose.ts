@@ -24,9 +24,14 @@ export type Layer = {
 };
 
 export type Mist = {
+	/** Top of the soft mist band. */
 	y: number;
 	height: number;
-	fill: string;
+	/** Solid mist color; opacity is applied via gradient stops. */
+	color: string;
+	peakOpacity: number;
+	/** Phase seed so each band undulates differently. */
+	phase: number;
 };
 
 export type Scene = {
@@ -44,7 +49,13 @@ export type ComposeOptions = {
 	depth: number;
 	trees: number;
 	mist: number;
+	/** Force a palette index for consistent branding (e.g. thumbnails). */
+	paletteIndex?: number;
+	/** Force an exact silhouette layer count. */
+	layerCount?: number;
 };
+
+export const THUMB_PALETTE = 0;
 
 /** Deliberate layout plan driven by composition.md rules. */
 type Plan = {
@@ -67,7 +78,7 @@ const PALETTES = [
 		layers: ["#aeb6c2", "#87919f", "#556070", "#2a323f"],
 		trees: ["#a6aeb9", "#748090", "#3f4a59", "#141a22"],
 		snow: "#e6ebf1",
-		mist: "rgba(214, 220, 228, 0.38)",
+		mist: "#d6dce4",
 		ground: "#1c222c",
 		accent: "rgba(232, 236, 242, 0.55)",
 	},
@@ -76,7 +87,7 @@ const PALETTES = [
 		layers: ["#aeb8b4", "#879490", "#55635e", "#283330"],
 		trees: ["#a6b0ab", "#74827c", "#3f4d48", "#121916"],
 		snow: "#e8eeeb",
-		mist: "rgba(216, 222, 218, 0.36)",
+		mist: "#d8deda",
 		ground: "#1a211f",
 		accent: "rgba(236, 240, 237, 0.5)",
 	},
@@ -85,7 +96,7 @@ const PALETTES = [
 		layers: ["#b4aebc", "#908a99", "#5c5666", "#2e2936"],
 		trees: ["#aca6b4", "#7c7686", "#45404f", "#16131c"],
 		snow: "#ece8f0",
-		mist: "rgba(220, 216, 226, 0.36)",
+		mist: "#dcd8e2",
 		ground: "#1d1a24",
 		accent: "rgba(238, 234, 242, 0.48)",
 	},
@@ -402,7 +413,10 @@ function layerTrees(
 
 export function composeScene(seed: number, options: ComposeOptions): Scene {
 	const rand = mulberry32(seed);
-	const palette = pick(rand, PALETTES);
+	const palette =
+		options.paletteIndex != null
+			? (PALETTES[options.paletteIndex % PALETTES.length] ?? PALETTES[0]!)
+			: pick(rand, PALETTES);
 	const w = FRAME_W;
 	const h = FRAME_H;
 
@@ -412,7 +426,16 @@ export function composeScene(seed: number, options: ComposeOptions): Scene {
 
 	const plan = planComposition(rand, w, h);
 	// Odd-number preference for layer stacks when depth allows.
-	const layerCount = depth < 0.34 ? 3 : depth < 0.72 ? (rand() < 0.65 ? 3 : 4) : 4;
+	const layerCount =
+		options.layerCount != null
+			? clamp(Math.round(options.layerCount), 3, 4)
+			: depth < 0.34
+				? 3
+				: depth < 0.72
+					? rand() < 0.65
+						? 3
+						: 4
+					: 4;
 	const fills = sampleColors(palette.layers, layerCount);
 	const treeFills = sampleColors(palette.trees, layerCount);
 
@@ -457,15 +480,24 @@ export function composeScene(seed: number, options: ComposeOptions): Scene {
 		});
 	}
 
+	// One soft veil between each silhouette pair so depth reads as atmosphere, not hard cutouts.
 	const mists: Mist[] = [];
-	const mistBands = Math.round(lerp(0, 3, mistAmount));
-	for (let i = 0; i < mistBands; i++) {
-		const t = (i + 1) / (mistBands + 1);
-		mists.push({
-			y: lerp(plan.horizon - 16, h * 0.68, t),
-			height: lerp(24, 56, mistAmount) * (0.7 + rand() * 0.45),
-			fill: palette.mist,
-		});
+	if (mistAmount > 0.02) {
+		for (let i = 0; i < layerCount - 1; i++) {
+			const ridge = layers[i]!.ridge;
+			let sum = 0;
+			for (const point of ridge) sum += point.y;
+			const contactY = sum / Math.max(1, ridge.length);
+			const depthT = i / Math.max(1, layerCount - 2);
+			const height = lerp(52, 110, mistAmount) * lerp(0.85, 1.2, depthT) * (0.85 + rand() * 0.3);
+			mists.push({
+				y: contactY - height * lerp(0.35, 0.55, rand()),
+				height,
+				color: palette.mist,
+				peakOpacity: lerp(0.22, 0.55, mistAmount) * lerp(0.75, 1.05, 1 - depthT * 0.35),
+				phase: rand() * Math.PI * 2,
+			});
+		}
 	}
 
 	// Accent at a thirds/golden sky intersection opposite the mass — balance without competing.
@@ -544,4 +576,161 @@ export function sceneSnow(scene: Scene): string {
 		if (palette.ground === scene.ground) return palette.snow;
 	}
 	return "#e6ebf1";
+}
+
+/** Soft undulating mist band — transparent edges, denser mid. */
+export function mistBandPath(mist: Mist, w: number): string {
+	const steps = 14;
+	const top: Point[] = [];
+	const bottom: Point[] = [];
+	for (let i = 0; i <= steps; i++) {
+		const t = i / steps;
+		const x = t * w;
+		const wave =
+			Math.sin(t * Math.PI * 2.2 + mist.phase) * mist.height * 0.12 +
+			Math.sin(t * Math.PI * 4.1 + mist.phase * 1.7) * mist.height * 0.06;
+		const bulge = Math.sin(t * Math.PI) * mist.height * 0.08;
+		top.push({ x, y: mist.y + wave - bulge });
+		bottom.push({
+			x,
+			y: mist.y + mist.height + wave * 0.55 + bulge * 0.4,
+		});
+	}
+	const first = top[0]!;
+	let d = `M ${first.x.toFixed(1)} ${first.y.toFixed(1)}`;
+	for (let i = 1; i < top.length; i++) {
+		const p = top[i]!;
+		d += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+	}
+	for (let i = bottom.length - 1; i >= 0; i--) {
+		const p = bottom[i]!;
+		d += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+	}
+	return `${d} Z`;
+}
+
+function mistMarkup(mist: Mist, w: number, id: string): string {
+	const opacity = mist.peakOpacity.toFixed(3);
+	return [
+		`<defs>`,
+		`<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">`,
+		`<stop offset="0%" stop-color="${mist.color}" stop-opacity="0"/>`,
+		`<stop offset="35%" stop-color="${mist.color}" stop-opacity="${opacity}"/>`,
+		`<stop offset="62%" stop-color="${mist.color}" stop-opacity="${opacity}"/>`,
+		`<stop offset="100%" stop-color="${mist.color}" stop-opacity="0"/>`,
+		`</linearGradient>`,
+		`</defs>`,
+		`<path d="${mistBandPath(mist, w)}" fill="url(#${id})"/>`,
+	].join("");
+}
+
+/** Stable seed from a sketch id so each thumbnail stays unique and repeatable. */
+export function seedFromId(id: string): number {
+	let hash = 2166136261;
+	for (let i = 0; i < id.length; i++) {
+		hash ^= id.charCodeAt(i);
+		hash = Math.imul(hash, 16777619);
+	}
+	return hash >>> 0;
+}
+
+function renderLayerMarkup(
+	scene: Scene,
+	layers: Layer[],
+	options: {
+		sky?: boolean;
+		accent?: boolean;
+		/** Global mist indexes drawn after each local layer (by local order). */
+		mistAfterLocal?: number[];
+		/** Extra mist drawn after all local layers (between parallax stacks). */
+		mistTail?: number[];
+		idPrefix?: string;
+	},
+): string {
+	const snow = sceneSnow(scene);
+	const prefix = options.idPrefix ?? "m";
+	const parts: string[] = [];
+	if (options.sky) {
+		parts.push(
+			`<defs><linearGradient id="${prefix}-sky" x1="0" y1="0" x2="0" y2="1">`,
+			`<stop offset="0%" stop-color="${scene.sky[0]}"/>`,
+			`<stop offset="100%" stop-color="${scene.sky[1]}"/>`,
+			`</linearGradient></defs>`,
+			`<rect width="${scene.w}" height="${scene.h}" fill="url(#${prefix}-sky)"/>`,
+		);
+	}
+	if (options.accent && scene.accent) {
+		parts.push(
+			`<circle cx="${scene.accent.x.toFixed(1)}" cy="${scene.accent.y.toFixed(1)}" r="${scene.accent.r.toFixed(1)}" fill="${scene.accent.fill}"/>`,
+		);
+	}
+	layers.forEach((layer, localIndex) => {
+		parts.push(`<path d="${pointsToClosedPath(layer.ridge, scene.w, scene.h)}" fill="${layer.fill}"/>`);
+		for (const patch of layer.snow) {
+			parts.push(`<path d="${polygonPath(patch)}" fill="${snow}" opacity="0.7"/>`);
+		}
+		for (const pine of layer.pines) {
+			parts.push(`<path d="${pinePath(pine)}" fill="${pine.fill}"/>`);
+		}
+		const mistIndex = options.mistAfterLocal?.[localIndex];
+		if (mistIndex != null) {
+			const mist = scene.mists[mistIndex];
+			if (mist) parts.push(mistMarkup(mist, scene.w, `${prefix}-mist-${mistIndex}`));
+		}
+	});
+	for (const mistIndex of options.mistTail ?? []) {
+		const mist = scene.mists[mistIndex];
+		if (mist) parts.push(mistMarkup(mist, scene.w, `${prefix}-mist-tail-${mistIndex}`));
+	}
+	return parts.join("");
+}
+
+function wrapSvg(scene: Scene, body: string): string {
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${scene.w} ${scene.h}" width="${scene.w}" height="${scene.h}">${body}</svg>`;
+}
+
+export function sceneToSvg(scene: Scene): string {
+	return wrapSvg(
+		scene,
+		renderLayerMarkup(scene, scene.layers, {
+			sky: true,
+			accent: true,
+			mistAfterLocal: scene.layers.map((_, index) => index),
+			idPrefix: "full",
+		}),
+	);
+}
+
+/** Split a scene into back / mid / front SVGs for parallax thumbnails. */
+export function sceneToParallaxSvgs(scene: Scene): [string, string, string] {
+	const count = Math.max(1, scene.layers.length);
+	const backCount = Math.max(1, Math.ceil(count / 3));
+	const midCount = Math.max(1, Math.floor(count / 3));
+	const back = scene.layers.slice(0, backCount);
+	const mid = scene.layers.slice(backCount, backCount + midCount);
+	const front = scene.layers.slice(backCount + midCount);
+
+	// Parallax thumbs stay crisp; live mist is layered in CSS between the PNGs.
+	return [
+		wrapSvg(
+			scene,
+			renderLayerMarkup(scene, back, {
+				sky: true,
+				accent: true,
+				idPrefix: "back",
+			}),
+		),
+		wrapSvg(
+			scene,
+			renderLayerMarkup(scene, mid.length ? mid : back.slice(-1), {
+				idPrefix: "mid",
+			}),
+		),
+		wrapSvg(
+			scene,
+			renderLayerMarkup(scene, front.length ? front : scene.layers.slice(-1), {
+				idPrefix: "front",
+			}),
+		),
+	];
 }

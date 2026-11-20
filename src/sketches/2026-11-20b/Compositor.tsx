@@ -4,13 +4,31 @@ import {
 	FRAME_H,
 	FRAME_W,
 	composeScene,
+	mistBandPath,
 	pinePath,
 	pointsToClosedPath,
 	polygonPath,
 	sceneSnow,
 	type ComposeOptions,
+	type Mist,
 	type Scene,
 } from "./compose";
+
+function MistVeil({ mist, w, gradId }: { mist: Mist; w: number; gradId: string }) {
+	return (
+		<>
+			<defs>
+				<linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stopColor={mist.color} stopOpacity={0} />
+					<stop offset="35%" stopColor={mist.color} stopOpacity={mist.peakOpacity} />
+					<stop offset="62%" stopColor={mist.color} stopOpacity={mist.peakOpacity} />
+					<stop offset="100%" stopColor={mist.color} stopOpacity={0} />
+				</linearGradient>
+			</defs>
+			<path d={mistBandPath(mist, w)} fill={`url(#${gradId})`} />
+		</>
+	);
+}
 
 function nextSeed(seed: number) {
 	return (seed + 1 + Math.floor(Math.random() * 99991)) % 100000;
@@ -57,25 +75,13 @@ function SceneView({ scene, uid }: { scene: Scene; uid: string }) {
 						<path key={`${uid}-pine-${index}-${pineIndex}`} d={pinePath(pine)} fill={pine.fill} />
 					))}
 					{scene.mists[index] && (
-						<rect
-							x={0}
-							y={scene.mists[index]!.y}
-							width={scene.w}
-							height={scene.mists[index]!.height}
-							fill={scene.mists[index]!.fill}
+						<MistVeil
+							mist={scene.mists[index]!}
+							w={scene.w}
+							gradId={`${uid}-mist-${index}`}
 						/>
 					)}
 				</g>
-			))}
-			{scene.mists.slice(scene.layers.length).map((mist, index) => (
-				<rect
-					key={`${uid}-mist-extra-${index}`}
-					x={0}
-					y={mist.y}
-					width={scene.w}
-					height={mist.height}
-					fill={mist.fill}
-				/>
 			))}
 		</svg>
 	);
@@ -86,7 +92,7 @@ export default function Compositor() {
 	const [seed, setSeed] = useState(() => Math.floor(Math.random() * 100000));
 	const [depth, setDepth] = useState(0.55);
 	const [trees, setTrees] = useState(0.85);
-	const [mist, setMist] = useState(0.35);
+	const [mist, setMist] = useState(0.65);
 
 	const options = useMemo<ComposeOptions>(() => ({ depth, trees, mist }), [depth, trees, mist]);
 	const scene = useMemo(() => composeScene(seed, options), [seed, options]);

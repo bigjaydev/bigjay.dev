@@ -14,3 +14,12 @@ export function byNewest(a: SketchLike, b: SketchLike) {
 export function byOldest(a: SketchLike, b: SketchLike) {
 	return -byNewest(a, b);
 }
+
+export function thumbnailPath(id: string): string {
+	return `/thumbnails/${id}.png`;
+}
+
+/** Back / mid / front parallax layers for a sketch listing card. */
+export function thumbnailLayers(id: string): [string, string, string] {
+	return [`/thumbnails/${id}-0.png`, `/thumbnails/${id}-1.png`, `/thumbnails/${id}-2.png`];
+}
