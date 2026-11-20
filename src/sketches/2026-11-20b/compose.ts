@@ -46,10 +46,24 @@ export type ComposeOptions = {
 	mist: number;
 };
 
+/** Deliberate layout plan driven by composition.md rules. */
+type Plan = {
+	focusX: number;
+	secondaryX: number;
+	tertiaryX: number | null;
+	horizon: number;
+	skyOpen: number;
+	massSide: -1 | 1;
+	diagonal: number;
+	peakBoost: number;
+	mode: "thirds" | "golden" | "diagonal" | "triangle";
+};
+
+const PHI = 0.6180339887;
+
 const PALETTES = [
 	{
 		sky: ["#d9dee6", "#b7c0cc"] as [string, string],
-		// back → front ridge fills
 		layers: ["#aeb6c2", "#87919f", "#556070", "#2a323f"],
 		trees: ["#a6aeb9", "#748090", "#3f4a59", "#141a22"],
 		snow: "#e6ebf1",
@@ -127,7 +141,6 @@ function makeShadeField(rand: () => number): ShadeField {
 	};
 }
 
-/** Spatial shade so neighbors share tone; clumps instead of speckles. */
 function clumpedTreeFill(base: string, x: number, y: number, field: ShadeField): string {
 	const wave =
 		Math.sin(x * field.ax + y * field.ay + field.cx) * 0.55 +
@@ -148,37 +161,107 @@ function sampleColors(colors: string[], count: number): string[] {
 	return out;
 }
 
+/** Rule of thirds / golden ratio anchors with edge awareness. */
+function planComposition(rand: () => number, w: number, h: number): Plan {
+	const mode = pick(rand, ["thirds", "golden", "diagonal", "triangle"] as const);
+	const thirdL = w / 3;
+	const thirdR = (2 * w) / 3;
+	const goldL = w * (1 - PHI);
+	const goldR = w * PHI;
+	const massSide: -1 | 1 = rand() < 0.5 ? -1 : 1;
+
+	let focusX: number;
+	let secondaryX: number;
+	let tertiaryX: number | null = null;
+	let diagonal = 0;
+	let peakBoost = 1;
+
+	if (mode === "thirds") {
+		// Emphasis on a thirds intersection; secondary on the opposite third (asymmetrical balance).
+		focusX = massSide < 0 ? thirdR + (rand() - 0.5) * w * 0.06 : thirdL + (rand() - 0.5) * w * 0.06;
+		secondaryX = massSide < 0 ? thirdL + (rand() - 0.5) * w * 0.05 : thirdR + (rand() - 0.5) * w * 0.05;
+		if (rand() < 0.55) tertiaryX = w * 0.5 + (rand() - 0.5) * w * 0.08; // odd-number peak group
+		peakBoost = 1.05 + rand() * 0.2;
+	} else if (mode === "golden") {
+		focusX = massSide < 0 ? goldR : goldL;
+		secondaryX = massSide < 0 ? goldL : goldR;
+		focusX += (rand() - 0.5) * w * 0.04;
+		secondaryX += (rand() - 0.5) * w * 0.04;
+		peakBoost = 1.1 + rand() * 0.2;
+	} else if (mode === "diagonal") {
+		// Leading diagonal: rising ridge toward focus, secondary lower on the opposite side.
+		focusX = massSide < 0 ? lerp(thirdR, w * 0.78, rand()) : lerp(w * 0.22, thirdL, rand());
+		secondaryX = massSide < 0 ? lerp(w * 0.18, thirdL, rand()) : lerp(thirdR, w * 0.82, rand());
+		diagonal = massSide * (0.35 + rand() * 0.35);
+		peakBoost = 1 + rand() * 0.15;
+	} else {
+		// Triangular: three peaks (odd number) forming a stable pyramid structure.
+		const apex = massSide < 0 ? thirdR : thirdL;
+		focusX = apex + (rand() - 0.5) * w * 0.05;
+		secondaryX = focusX - massSide * w * (0.22 + rand() * 0.08);
+		tertiaryX = focusX + massSide * w * (0.18 + rand() * 0.08);
+		secondaryX = clamp(secondaryX, w * 0.12, w * 0.88);
+		tertiaryX = clamp(tertiaryX, w * 0.12, w * 0.88);
+		peakBoost = 1.15 + rand() * 0.2;
+	}
+
+	// Negative space: keep meaningful sky; horizon near upper third / golden.
+	const skyOpen = mode === "golden" ? h * (1 - PHI) * (0.85 + rand() * 0.2) : h * (0.28 + rand() * 0.1);
+	const horizon = skyOpen + h * (0.08 + rand() * 0.06);
+
+	return {
+		focusX: clamp(focusX, w * 0.18, w * 0.82),
+		secondaryX: clamp(secondaryX, w * 0.1, w * 0.9),
+		tertiaryX,
+		horizon: clamp(horizon, h * 0.28, h * 0.48),
+		skyOpen,
+		massSide,
+		diagonal,
+		peakBoost,
+		mode,
+	};
+}
+
 function ridgePath(
 	rand: () => number,
 	w: number,
 	baseY: number,
 	amp: number,
 	steps: number,
-	focusX: number,
-	focusBoost: number,
+	plan: Plan,
+	layerT: number,
 ): Point[] {
-	const sideA = clamp(focusX + (rand() < 0.5 ? -1 : 1) * w * (0.18 + rand() * 0.16), w * 0.12, w * 0.88);
-	const sideB = clamp(w * (0.15 + rand() * 0.7), w * 0.1, w * 0.9);
-	const sideBoostA = amp * (0.25 + rand() * 0.35);
-	const sideBoostB = amp * (0.12 + rand() * 0.25);
-	const phase = rand() * Math.PI * 2;
+	const peaks: { x: number; boost: number; width: number }[] = [
+		{ x: plan.focusX, boost: amp * plan.peakBoost * lerp(0.55, 1.15, layerT), width: w * 0.34 },
+		{ x: plan.secondaryX, boost: amp * lerp(0.35, 0.75, layerT), width: w * 0.24 },
+	];
+	if (plan.tertiaryX != null) {
+		peaks.push({ x: plan.tertiaryX, boost: amp * lerp(0.25, 0.55, layerT), width: w * 0.2 });
+	}
 
+	const phase = rand() * Math.PI * 2;
 	const points: Point[] = [];
 	for (let i = 0; i <= steps; i++) {
 		const t = i / steps;
 		const x = t * w;
-		const focus = smoothstep(1 - Math.min(1, Math.abs(x - focusX) / (w * 0.38)));
-		const secondary =
-			smoothstep(1 - Math.min(1, Math.abs(x - sideA) / (w * 0.22))) * sideBoostA +
-			smoothstep(1 - Math.min(1, Math.abs(x - sideB) / (w * 0.18))) * sideBoostB;
-		const roll = Math.sin(t * Math.PI * 2.1 + phase) * amp * 0.12;
-		const jag = (rand() - 0.5) * amp * 0.08;
-		const lift = focus * amp * focusBoost + secondary + roll + jag;
-		const edgeSettle = smoothstep(Math.min(t, 1 - t) * 4);
-		points.push({ x, y: baseY - amp * 0.12 - lift * (0.35 + edgeSettle * 0.65) });
+		let lift = 0;
+		for (const peak of peaks) {
+			const falloff = smoothstep(1 - Math.min(1, Math.abs(x - peak.x) / peak.width));
+			lift += falloff * peak.boost;
+		}
+		// Diagonal leading line across the ridge.
+		lift += plan.diagonal * amp * (t - 0.5) * lerp(0.15, 0.55, layerT);
+		const roll = Math.sin(t * Math.PI * 2.05 + phase) * amp * 0.1;
+		const jag = (rand() - 0.5) * amp * 0.07;
+		const edgeSettle = smoothstep(Math.min(t, 1 - t) * 4.2);
+		points.push({
+			x,
+			y: baseY - amp * 0.1 - (lift + roll + jag) * (0.3 + edgeSettle * 0.7),
+		});
 	}
-	points[0] = { x: 0, y: baseY - amp * 0.08 };
-	points[points.length - 1] = { x: w, y: baseY - amp * (0.06 + rand() * 0.12) };
+	// Edge awareness: settle corners so silhouettes don't tangent awkwardly.
+	points[0] = { x: 0, y: baseY - amp * 0.06 };
+	points[points.length - 1] = { x: w, y: baseY - amp * (0.05 + rand() * 0.1) };
 	return points;
 }
 
@@ -250,12 +333,11 @@ function layerTrees(
 	treeFill: string,
 	contrast: number,
 	amount: number,
-	focusX: number,
 	layerBottom: number,
 	front: boolean,
+	plan: Plan,
 ): Pine[] {
 	const pines: Pine[] = [];
-	// Front crowns the landmass. Back/mid layers fill the whole slope body as a forest field.
 	const rows = front
 		? 8 + Math.round(lerp(2, 4, amount))
 		: 14 + Math.round(lerp(8, 4, contrast) * lerp(1, 1.3, amount));
@@ -269,31 +351,36 @@ function layerTrees(
 		const count = Math.round(
 			(front ? lerp(48, 78, amount) : lerp(240, 140, contrast) * depthBoost) *
 				lerp(1.05, 1.35, amount) *
-				// Front: denser on the ridgeline, slightly looser as trees come forward.
 				(front ? lerp(2.35, 0.85, rowT) : lerp(1.05, 0.95, rowT)),
 		);
 		const spacing = w / Math.max(1, count);
 		const stagger = (row % 2) * spacing * 0.5;
 
 		for (let i = 0; i < count; i++) {
-			const x = front
+			let x = front
 				? ((i + 0.5) / count) * w + (rand() - 0.5) * spacing * 0.25 + stagger * 0.3
 				: i * spacing + stagger + (rand() - 0.5) * spacing * 0.55;
 			if (x < -14 || x > w + 14) continue;
 
-			const awayFromFocus = clamp(Math.abs(x - focusX) / (w * 0.5), 0, 1);
-			if (contrast < 0.25 && awayFromFocus < 0.12 && row === 0 && rand() < 0.35) continue;
+			// Asymmetrical balance: denser forest mass on one side; negative space near focal peak.
+			const side = (x - w * 0.5) / (w * 0.5);
+			const onMass = side * plan.massSide;
+			const awayFromFocus = clamp(Math.abs(x - plan.focusX) / (w * 0.5), 0, 1);
+			if (awayFromFocus < 0.14 && rowT < 0.35 && rand() < lerp(0.75, 0.35, contrast)) continue;
+			if (onMass < -0.15 && rand() < lerp(0.22, 0.08, contrast)) continue;
+			// Framing: pull a bit of near-edge weight on the mass side.
+			if (front && onMass > 0.35 && rand() < 0.18) {
+				x = clamp(x + plan.massSide * spacing * 0.4, 0, w);
+			}
 
 			const ridgeY = sampleRidgeY(ridge, clamp(x, 0, w));
 			let baseY: number;
 			let height: number;
 			if (front) {
-				// Near rows plant past the bottom edge so only crowns/upper halves remain in frame.
 				const overshoot = lerp(-10, 110, Math.pow(rowT, 1.15));
 				baseY = lerp(ridgeY + 8, h + overshoot, slopeT) + (rand() - 0.45) * 14;
-				// Lower in the frame = closer = larger, with local variation.
-				const depth = clamp((baseY - ridgeY) / Math.max(80, h + 90 - ridgeY), 0, 1);
-				height = lerp(26, 175, Math.pow(depth, 0.9)) * (0.78 + rand() * 0.44);
+				const depthY = clamp((baseY - ridgeY) / Math.max(80, h + 90 - ridgeY), 0, 1);
+				height = lerp(26, 175, Math.pow(depthY, 0.9)) * (0.78 + rand() * 0.44);
 			} else {
 				const floor = ridgeY + Math.max(80, layerBottom - ridgeY);
 				baseY = clamp(
@@ -323,26 +410,17 @@ export function composeScene(seed: number, options: ComposeOptions): Scene {
 	const treeAmount = clamp(options.trees, 0, 1);
 	const mistAmount = clamp(options.mist, 0, 1);
 
-	const layerCount = depth < 0.34 ? 3 : depth < 0.72 ? 3 + (rand() < 0.45 ? 1 : 0) : 4;
+	const plan = planComposition(rand, w, h);
+	// Odd-number preference for layer stacks when depth allows.
+	const layerCount = depth < 0.34 ? 3 : depth < 0.72 ? (rand() < 0.65 ? 3 : 4) : 4;
 	const fills = sampleColors(palette.layers, layerCount);
 	const treeFills = sampleColors(palette.trees, layerCount);
-
-	const skyWeight = 0.3 + rand() * 0.14;
-	const horizon = h * (skyWeight + 0.1);
-
-	const focusChoice = rand();
-	const focusX =
-		focusChoice < 0.38
-			? w * (0.28 + rand() * 0.08)
-			: focusChoice < 0.76
-				? w * (0.64 + rand() * 0.1)
-				: w * (0.46 + rand() * 0.08);
 
 	const layers: Layer[] = [];
 	const baseYs: number[] = [];
 	for (let i = 0; i < layerCount; i++) {
 		const t = i / Math.max(1, layerCount - 1);
-		baseYs.push(lerp(horizon, h * 0.78, Math.pow(t, 0.9)));
+		baseYs.push(lerp(plan.horizon, h * 0.78, Math.pow(t, 0.9)));
 	}
 
 	for (let i = 0; i < layerCount; i++) {
@@ -350,23 +428,32 @@ export function composeScene(seed: number, options: ComposeOptions): Scene {
 		const baseY = baseYs[i]!;
 		const amp = lerp(h * 0.18, h * 0.36, t) * (0.85 + rand() * 0.28);
 		const steps = 16 + Math.floor(lerp(6, 16, t));
-		const focusBoost = lerp(0.4, 1.1, t) * (0.75 + rand() * 0.4);
-		const ridge = ridgePath(rand, w, baseY, amp, steps, focusX, focusBoost);
+		const ridge = ridgePath(rand, w, baseY, amp, steps, plan, t);
 		const fill = fills[i]!;
 		const treeFill = treeFills[i]!;
 		const snowChance = t > 0.15 && t < 0.75 ? lerp(0.5, 0.12, t) * (0.35 + depth * 0.5) : 0;
 		const front = i === layerCount - 1;
-		// Give back/mid forests a deep slope band before the next silhouette covers them.
 		const layerBottom = front
 			? baseY + amp * 0.35
 			: lerp(baseY + amp * 0.2, baseYs[i + 1] ?? h * 0.88, 0.95);
 
 		layers.push({
 			fill,
-			treeFill: front ? fill : treeFill, // front trunks melt into the landmass
+			treeFill: front ? fill : treeFill,
 			ridge,
 			snow: snowPatches(rand, ridge, snowChance, t),
-			pines: layerTrees(rand, w, h, ridge, front ? fill : treeFill, t, treeAmount, focusX, layerBottom, front),
+			pines: layerTrees(
+				rand,
+				w,
+				h,
+				ridge,
+				front ? fill : treeFill,
+				t,
+				treeAmount,
+				layerBottom,
+				front,
+				plan,
+			),
 		});
 	}
 
@@ -375,18 +462,23 @@ export function composeScene(seed: number, options: ComposeOptions): Scene {
 	for (let i = 0; i < mistBands; i++) {
 		const t = (i + 1) / (mistBands + 1);
 		mists.push({
-			y: lerp(horizon - 16, h * 0.68, t),
+			y: lerp(plan.horizon - 16, h * 0.68, t),
 			height: lerp(24, 56, mistAmount) * (0.7 + rand() * 0.45),
 			fill: palette.mist,
 		});
 	}
 
+	// Accent at a thirds/golden sky intersection opposite the mass — balance without competing.
 	const accent =
-		rand() < 0.4
+		rand() < 0.55
 			? {
-					x: lerp(w * 0.12, w * 0.88, rand()),
-					y: lerp(h * 0.1, horizon * 0.85, rand()),
-					r: lerp(10, 26, rand()),
+					x: clamp(
+						plan.massSide < 0 ? w * (0.22 + rand() * 0.12) : w * (0.66 + rand() * 0.12),
+						w * 0.12,
+						w * 0.88,
+					),
+					y: clamp(plan.skyOpen * (0.35 + rand() * 0.35), h * 0.08, plan.horizon * 0.75),
+					r: lerp(9, 22, rand()),
 					fill: palette.accent,
 				}
 			: null;

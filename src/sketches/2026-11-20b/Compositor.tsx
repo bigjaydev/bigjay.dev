@@ -153,8 +153,8 @@ export default function Compositor() {
 				</label>
 			</div>
 			<p className="mt-4 max-w-xl text-sm text-slate-500">
-				Rerun for another composition. Scenes stack as 3–4 silhouette layers — soft in back, strongest
-				contrast in front.
+				Rerun for another composition. Each scene picks a plan — thirds, golden, diagonal, or triangle —
+				then layers depth, mass, and sky space from that.
 			</p>
 		</div>
 	);
