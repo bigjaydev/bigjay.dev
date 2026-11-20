@@ -14,9 +14,19 @@ const formattedDate = updatedDate.toLocaleDateString("en-AU", {
 		<article
 			class="border-border-strong paper-grain mx-auto min-h-svh max-w-[760px] border px-6 py-8 sm:min-h-[calc(100svh-4rem)] sm:px-10"
 		>
-			<a href="/" class="font-mast text-fg-default w-fit text-4xl leading-[0.8] no-underline">
-				<span class="border-border-strong block border-b pb-0.5">Bigjay</span>
-				<span class="block pt-0.5">Dev</span>
+			<a href="/" class="relative block w-fit pl-3 no-underline">
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 absolute top-[-2rem] bottom-0 left-0 w-px"
+				></span>
+				<span class="font-mast text-fg-default block w-fit text-4xl leading-[0.8]">
+					<span class="block font-medium">Bigjay</span>
+					<span class="block font-bold">Dotdev</span>
+				</span>
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 mt-3 block h-px w-[calc(100%+0.75rem+1.5rem)] -ml-[calc(0.75rem+1.5rem)] sm:w-[calc(100%+0.75rem+2.5rem)] sm:-ml-[calc(0.75rem+2.5rem)]"
+				></span>
 			</a>
 			<p class="font-meta text-fg-muted mt-10 text-[11px]">{formattedDate}</p>
 			<h1 class="font-display text-fg-default mt-3 text-5xl">{title}</h1>

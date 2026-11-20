@@ -5,151 +5,106 @@ import { byNewest } from "../lib/sketches";
 
 const sketches = (await getCollection("sketches")).sort(byNewest);
 const latest = sketches[0];
-const recent = sketches.slice(1, 4);
-const earlier = sketches.slice(4);
 
 const shortDate = (date: Date) =>
 	date.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 const dayNum = (date: Date) => date.toLocaleDateString("en-AU", { day: "2-digit" });
 const monthYear = (date: Date) =>
 	date.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+
+/** Left rail matches the header container; media can break out to the right edge. */
+const leftRail = "pl-[max(1.5rem,calc((100%-1080px)/2+2rem))]";
 ---
 
 <BaseLayout frontmatter={{ title: "bigjay.dev" }}>
-	<div class="bg-bg-canvas min-h-svh sm:px-6 sm:py-8">
-		<div
-			class="border-border-strong paper-grain mx-auto min-h-svh max-w-[1080px] border sm:min-h-[calc(100svh-4rem)]"
+	<div class="paper-grain min-h-svh">
+		<header
+			class="mx-auto flex max-w-[1080px] items-start justify-between gap-8 px-6 py-6 sm:px-8 sm:py-8"
 		>
-			<header
-				class="border-border-strong flex items-start justify-between gap-8 border-b px-6 py-6 sm:px-8 sm:py-8"
-			>
-				<div>
-					<p class="font-mast text-fg-default w-fit text-[4.25rem] leading-[0.78] sm:text-[5.5rem]">
-						<span class="border-border-strong block border-b pb-1">Bigjay</span>
-						<span class="block pt-1">Dev</span>
-					</p>
-					<p
-						class="font-meta text-fg-muted mt-5 max-w-[14rem] text-[11px] leading-relaxed tracking-[0.04em] normal-case"
-					>
-						A sketch a day, drawn in the browser.
-					</p>
-				</div>
-				<nav class="font-meta text-fg-default flex shrink-0 items-start gap-3 pt-1 text-[11px]">
-					<a href="/" class="border-border-strong border px-2.5 py-1 no-underline">Index</a>
-					{
-						latest && (
-							<a href={`/sketches/${latest.id}/`} class="px-1 py-1 no-underline">
-								Latest
-							</a>
-						)
-					}
-				</nav>
-			</header>
-
-			{
-				latest && (
-					<section class="border-border-strong relative grid border-b md:grid-cols-2">
-						<div class="relative z-10 px-6 py-10 sm:px-8 md:pr-12">
-							<p class="font-meta text-fg-muted text-[11px]">Latest</p>
-							<h2 class="font-display text-fg-default mt-4 text-5xl sm:text-6xl">
-								<a href={`/sketches/${latest.id}/`} class="no-underline">
-									{latest.data.title}
-								</a>
-							</h2>
-							<p class="text-fg-muted mt-5 max-w-sm text-sm leading-relaxed">
-								{latest.data.description}
-							</p>
-							<a
-								href={`/sketches/${latest.id}/`}
-								class="font-meta text-fg-default mt-8 inline-flex items-center gap-3 text-[11px] no-underline"
-							>
-								Open
-								<span class="bg-fg-default h-px w-10" />
-							</a>
-						</div>
-						<a
-							href={`/sketches/${latest.id}/`}
-							class="bg-bg-media text-fg-on-media relative block min-h-80 no-underline md:-ml-8"
-						>
-							<span class="border-border-media pointer-events-none absolute inset-4 border" />
-							<span class="font-meta absolute top-8 right-8 text-[10px]">Sketch</span>
-							<span class="date-stroke absolute top-1/2 left-8 -translate-y-1/2 text-[7.5rem] leading-none">
-								{dayNum(latest.data.pubDate)}
-							</span>
-							<span class="font-meta absolute top-1/2 right-6 -translate-y-1/2 text-[11px] [writing-mode:vertical-rl]">
-								{monthYear(latest.data.pubDate)}
-							</span>
-							<span class="border-border-media absolute bottom-8 left-8 border px-3 py-2 text-sm">
-								{latest.data.title}
-							</span>
+			<div class="relative w-fit pl-3">
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 absolute top-[-1.5rem] bottom-0 left-0 w-px sm:top-[-2rem]"
+				></span>
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 absolute top-[-1.5rem] right-full h-px w-[max(1.5rem,calc((100vw-1080px)/2+1.5rem))] sm:top-[-2rem] sm:w-[max(2rem,calc((100vw-1080px)/2+2rem))]"
+				></span>
+				<p class="font-mast text-fg-default text-[4.25rem] leading-[0.78] sm:text-[5.5rem]">
+					<span class="block font-medium">Bigjay</span>
+					<span class="block font-bold">Dotdev</span>
+				</p>
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 mt-5 block h-px w-[calc(100%+0.75rem+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] max-w-none -ml-[calc(0.75rem+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] sm:w-[calc(100%+0.75rem+max(2rem,calc((100vw-1080px)/2+2rem)))] sm:-ml-[calc(0.75rem+max(2rem,calc((100vw-1080px)/2+2rem)))]"
+				></span>
+				<p
+					class="font-meta text-fg-muted mt-4 max-w-[14rem] pb-4 text-[11px] leading-relaxed tracking-[0.04em] normal-case"
+				>
+					A sketch a day, drawn in the browser.
+				</p>
+			</div>
+			<nav class="font-meta text-fg-default relative flex shrink-0 items-start gap-3 pt-3 text-[11px]">
+				<span
+					aria-hidden="true"
+					class="bg-neutral-400 absolute top-0 left-0 h-[3px] w-[calc(100%+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] sm:w-[calc(100%+max(2rem,calc((100vw-1080px)/2+2rem)))]"
+				></span>
+				<a href="/" class="border-border-strong border px-2.5 py-1 no-underline">Index</a>
+				{
+					latest && (
+						<a href={`/sketches/${latest.id}/`} class="px-1 py-1 no-underline">
+							Latest
 						</a>
-					</section>
-				)
-			}
+					)
+				}
+			</nav>
+		</header>
 
-			{
-				recent.length > 0 && (
-					<section>
-						<p class="font-meta text-fg-muted px-6 pt-8 text-[11px] sm:px-8">Recent</p>
-						<ul>
-							{recent.map((sketch) => (
-								<li class="border-border-subtle border-b">
-									<a
-										href={`/sketches/${sketch.id}/`}
-										class="hover:bg-bg-hover grid gap-3 px-6 py-8 no-underline sm:px-8 md:grid-cols-[1fr_auto] md:items-start"
-									>
-										<span>
-											<span class="font-display text-fg-default block text-4xl">
-												{sketch.data.title}
-											</span>
-											<span class="text-fg-muted mt-3 block max-w-md text-sm leading-relaxed">
-												{sketch.data.description}
-											</span>
-											<span class="font-meta text-fg-default mt-5 inline-flex items-center gap-3 text-[11px]">
-												Open
-												<span class="bg-fg-default h-px w-10" />
-											</span>
+		<section class={`pt-12 pb-16 pr-0 sm:pt-16 ${leftRail}`}>
+			<ul class="space-y-16 sm:space-y-20">
+				{
+					sketches.map((sketch) => (
+						<li>
+							<a href={`/sketches/${sketch.id}/`} class="group block no-underline">
+								<div class="relative grid items-center gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] md:gap-0">
+									<div class="relative z-10 max-w-xl pr-6 sm:pr-8">
+										<span class="font-display text-steel-900 block text-4xl sm:text-5xl md:-mr-16 group-hover:opacity-80">
+											{sketch.data.title}
 										</span>
-										<span class="font-meta text-fg-muted text-[11px] md:pt-2">
+										<span class="text-fg-muted mt-3 block max-w-md text-sm leading-relaxed">
+											{sketch.data.description}
+										</span>
+										<span class="font-meta text-steel-900 mt-5 inline-flex items-center gap-3 text-[11px]">
+											Open
+											<span class="bg-steel-900 h-px w-10" />
+										</span>
+									</div>
+									<span class="bg-bg-media text-fg-on-media relative block min-h-56 md:-ml-12 md:min-h-64">
+										<span class="date-stroke absolute top-1/2 left-6 -translate-y-1/2 text-6xl leading-none sm:text-7xl">
+											{dayNum(sketch.data.pubDate)}
+										</span>
+										<span class="font-meta absolute top-1/2 right-5 -translate-y-1/2 text-[11px] [writing-mode:vertical-rl]">
+											{monthYear(sketch.data.pubDate)}
+										</span>
+										<span class="font-meta absolute right-5 bottom-5 text-[11px]">
 											{shortDate(sketch.data.pubDate)}
 										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</section>
-				)
-			}
+									</span>
+								</div>
+							</a>
+						</li>
+					))
+				}
+			</ul>
+		</section>
 
-			{
-				earlier.length > 0 && (
-					<section class="px-6 py-8 sm:px-8">
-						<p class="font-meta text-fg-muted text-[11px]">Earlier</p>
-						<ul class="border-border-strong mt-4 border-t">
-							{earlier.map((sketch) => (
-								<li class="border-border-subtle border-b">
-									<a
-										href={`/sketches/${sketch.id}/`}
-										class="text-fg-default hover:bg-bg-hover flex items-baseline justify-between gap-6 py-3 no-underline"
-									>
-										<span>{sketch.data.title}</span>
-										<span class="font-meta text-fg-muted shrink-0 text-[11px]">
-											{shortDate(sketch.data.pubDate)}
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</section>
-				)
-			}
-
-			<footer
-				class="bg-bg-footer text-fg-on-media font-meta flex items-center justify-between px-6 py-4 text-[11px] sm:px-8"
-			>
+		<footer
+			class="bg-bg-footer text-fg-on-media font-meta flex items-center justify-between px-6 py-4 text-[11px] sm:px-8"
+		>
+			<span class="mx-auto flex w-full max-w-[1080px] items-center justify-between">
 				<span>bigjay.dev</span>
 				<span>{latest ? monthYear(latest.data.pubDate) : "Sketches"}</span>
-			</footer>
-		</div>
+			</span>
+		</footer>
 	</div>
 </BaseLayout>

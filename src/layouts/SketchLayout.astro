@@ -23,47 +23,63 @@ const dayNum = pubDate.toLocaleDateString("en-AU", { day: "2-digit" });
 ---
 
 <BaseLayout frontmatter={{ title }}>
-	<div class="border-border-strong paper-grain border-b">
-		<div class="mx-auto max-w-[1080px] px-6 sm:px-8">
-			<header
-				class="border-border-strong flex flex-wrap items-end justify-between gap-4 border-b py-4"
-			>
-				<a href="/" class="font-mast text-fg-default w-fit text-4xl leading-[0.8] no-underline">
-					<span class="border-border-strong block border-b pb-0.5">Bigjay</span>
-					<span class="block pt-0.5">Dev</span>
-				</a>
-				<nav class="font-meta text-fg-default flex items-center gap-3 text-[11px]">
-					<a href="/" class="border-border-strong border px-2.5 py-1 no-underline">Index</a>
-					{
-						prev ? (
-							<a href={`/sketches/${prev.id}/`} class="px-1 py-1 no-underline">
-								Prev
-							</a>
-						) : null
-					}
-					{
-						next ? (
-							<a href={`/sketches/${next.id}/`} class="px-1 py-1 no-underline">
-								Next
-							</a>
-						) : null
-					}
-				</nav>
-			</header>
-			<div class="flex items-end justify-between gap-8 py-6">
-				<div class="min-w-0">
-					<p class="font-meta text-fg-muted text-[11px]">{formattedDate}</p>
-					<h1 class="font-display text-fg-default mt-2 text-4xl sm:text-6xl">{title}</h1>
-					<p class="text-fg-muted mt-3 max-w-xl text-sm leading-relaxed">{description}</p>
-				</div>
-				<p
-					class="date-stroke bg-bg-media hidden px-4 py-2 text-7xl leading-none sm:block"
+	<div class="paper-grain">
+		<header
+			class="mx-auto flex max-w-[1080px] flex-wrap items-end justify-between gap-4 px-6 py-4 sm:px-8"
+		>
+			<a href="/" class="relative block w-fit pb-6 pl-3 no-underline">
+				<span
 					aria-hidden="true"
-				>
-					{dayNum}
-				</p>
+					class="bg-neutral-300 absolute top-[-1rem] bottom-0 left-0 w-px"
+				></span>
+				<span class="font-mast text-fg-default block w-fit text-4xl leading-[0.8]">
+					<span class="block font-medium">Bigjay</span>
+					<span class="block font-bold">Dotdev</span>
+				</span>
+				<span
+					aria-hidden="true"
+					class="bg-neutral-300 mt-3 block h-px w-[calc(100%+0.75rem+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] -ml-[calc(0.75rem+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] sm:w-[calc(100%+0.75rem+max(2rem,calc((100vw-1080px)/2+2rem)))] sm:-ml-[calc(0.75rem+max(2rem,calc((100vw-1080px)/2+2rem)))]"
+				></span>
+			</a>
+			<nav class="font-meta text-fg-default relative flex items-center gap-3 pt-3 text-[11px]">
+				<span
+					aria-hidden="true"
+					class="bg-neutral-400 absolute top-0 left-0 h-[3px] w-[calc(100%+max(1.5rem,calc((100vw-1080px)/2+1.5rem)))] sm:w-[calc(100%+max(2rem,calc((100vw-1080px)/2+2rem)))]"
+				></span>
+				<a href="/" class="border-border-strong border px-2.5 py-1 no-underline">Index</a>
+				{
+					prev ? (
+						<a href={`/sketches/${prev.id}/`} class="px-1 py-1 no-underline">
+							Prev
+						</a>
+					) : null
+				}
+				{
+					next ? (
+						<a href={`/sketches/${next.id}/`} class="px-1 py-1 no-underline">
+							Next
+						</a>
+					) : null
+				}
+			</nav>
+		</header>
+		<div class="mx-auto flex max-w-[1080px] items-end justify-between gap-8 px-6 pt-10 pb-6 sm:px-8">
+			<div class="min-w-0">
+				<p class="font-meta text-fg-muted text-[11px]">{formattedDate}</p>
+				<h1 class="font-display text-fg-default mt-2 text-4xl sm:text-6xl">{title}</h1>
+				<p class="text-fg-muted mt-3 max-w-xl text-sm leading-relaxed">{description}</p>
 			</div>
+			<p
+				class="date-stroke bg-bg-media hidden px-4 py-2 text-7xl leading-none sm:block"
+				aria-hidden="true"
+			>
+				{dayNum}
+			</p>
 		</div>
 	</div>
-	<slot />
+	<div
+		class="bg-bg-canvas pt-8 shadow-[inset_0_1px_0_rgba(16,26,27,0.08),inset_0_8px_14px_rgba(16,26,27,0.05)] sm:pt-10"
+	>
+		<slot />
+	</div>
 </BaseLayout>
