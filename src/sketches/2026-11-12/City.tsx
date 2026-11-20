@@ -37,7 +37,7 @@ export default function City() {
 			<button
 				type="button"
 				onClick={() => setSeed(nextSeed)}
-				className="block w-full cursor-pointer rounded-md border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[#fecef5]"
+				className="block w-full cursor-pointer rounded-md border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[#e4e0d6]"
 				aria-label="Another city"
 			>
 				<canvas

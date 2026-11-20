@@ -1,9 +1,7 @@
 ---
-import { Image } from "astro:assets";
-
 import BaseLayout from "./BaseLayout.astro";
 
-const { title, heroImage, updatedDate } = Astro.props;
+const { title, updatedDate } = Astro.props;
 const formattedDate = updatedDate.toLocaleDateString("en-AU", {
 	day: "numeric",
 	month: "long",
@@ -12,9 +10,19 @@ const formattedDate = updatedDate.toLocaleDateString("en-AU", {
 ---
 
 <BaseLayout frontmatter={{ title }}>
-	<article class="prose prose-slate mt-6 max-w-none">
-		<h1 class="text-primary font-space-grotesk mt-8">{title}</h1>
-		<p class="text-small mb-12 uppercase">{formattedDate}</p>
-		<slot />
-	</article>
+	<div class="min-h-svh bg-[#e3e5e1] sm:px-6 sm:py-8">
+		<article
+			class="border-ink bg-paper mx-auto min-h-svh max-w-[760px] border px-6 py-8 sm:min-h-[calc(100svh-4rem)] sm:px-10"
+		>
+			<a href="/" class="font-mast text-ink text-4xl leading-[0.8] no-underline">
+				<span class="border-ink block border-b pb-0.5">Bigjay</span>
+				<span class="block pt-0.5">Dev</span>
+			</a>
+			<p class="text-graphite mt-10 text-[11px] tracking-[0.22em] uppercase">{formattedDate}</p>
+			<h1 class="font-display text-ink mt-3 text-5xl">{title}</h1>
+			<div class="prose prose-neutral mt-8 max-w-none">
+				<slot />
+			</div>
+		</article>
+	</div>
 </BaseLayout>

@@ -158,7 +158,7 @@ function LeadPart({
 						height={28}
 						rx={8}
 						fill="none"
-						stroke="#fecef5"
+						stroke="#e4e0d6"
 						strokeWidth={1.4}
 					/>
 				) : null}
@@ -307,7 +307,7 @@ function PartGraphic({
 					height={26}
 					rx={5}
 					fill="#2c2a28"
-					stroke={selected ? "#fecef5" : "#111"}
+					stroke={selected ? "#e4e0d6" : "#111"}
 					strokeWidth={selected ? 1.6 : 1}
 					pointerEvents="none"
 				/>
@@ -379,7 +379,7 @@ function PartGraphic({
 					height={BATTERY_BODY.h}
 					rx={7}
 					fill="#2a2926"
-					stroke={selected ? "#fecef5" : "#111"}
+					stroke={selected ? "#e4e0d6" : "#111"}
 					strokeWidth={selected ? 2 : 1}
 				/>
 				<text
@@ -397,7 +397,7 @@ function PartGraphic({
 					cx={BATTERY_BODY.x + BATTERY_BODY.w / 2}
 					cy={BATTERY_BODY.y + 50}
 					r={3.5}
-					fill="#fecef5"
+					fill="#e4e0d6"
 					opacity={0.3}
 				/>
 				<circle cx={posts.pos.x} cy={posts.pos.y} r={3.2} fill="#e5484d" />
@@ -424,7 +424,7 @@ function PartGraphic({
 				height={frame.h}
 				rx={4}
 				fill="#232321"
-				stroke={selected ? "#fecef5" : "#111"}
+				stroke={selected ? "#e4e0d6" : "#111"}
 				strokeWidth={selected ? 2 : 1}
 			/>
 			<circle cx={frame.x + 2} cy={frame.y + frame.h / 2} r={8} fill="#f3eee6" />
@@ -445,7 +445,7 @@ function PartGraphic({
 					y={pin.row === "e" ? frame.y + 12 : frame.y + frame.h - 5}
 					textAnchor="middle"
 					fontSize={8}
-					fill={pin.pin === 1 ? "#fecef5" : "#ddd8d0"}
+					fill={pin.pin === 1 ? "#e4e0d6" : "#ddd8d0"}
 				>
 					{pin.pin}
 				</text>
@@ -457,7 +457,7 @@ function PartGraphic({
 				cx={colX(part.col + 2)}
 				cy={frame.y + frame.h / 2 + 12}
 				r={3}
-				fill="#fecef5"
+				fill="#e4e0d6"
 			/>
 		</g>
 	);
@@ -508,7 +508,7 @@ function drawScope(canvas: HTMLCanvasElement, engine: Engine) {
 
 	const start = (engine.scopeI - samples + engine.scope.length) % engine.scope.length;
 	ctx.beginPath();
-	ctx.strokeStyle = "#fecef5";
+	ctx.strokeStyle = "#e4e0d6";
 	ctx.lineWidth = 1.5;
 	let drawing = false;
 	const columns = Math.max(1, Math.floor(width));
@@ -563,7 +563,7 @@ const LivePanel = memo(function LivePanel({
 	return (
 		<div className="mt-4">
 			<div className="mb-2 flex items-baseline justify-between gap-3 text-xs">
-				<span ref={status} className="font-space-grotesk text-sm text-[#fecef5]" />
+				<span ref={status} className="font-space-grotesk text-sm text-[#e4e0d6]" />
 				<span ref={probe} className="text-[#f4efe8]/75" />
 			</div>
 			<canvas ref={canvas} className="h-28 w-full rounded-xl bg-[#101211]" />
@@ -601,7 +601,7 @@ function LogSlider({
 			value={Math.round(position * 1000)}
 			aria-label="Value"
 			onChange={(event) => onChange(min * Math.exp((Number(event.target.value) / 1000) * span))}
-			className="mt-2 w-full accent-[#fecef5]"
+			className="mt-2 w-full accent-[#e4e0d6]"
 		/>
 	);
 }
@@ -772,7 +772,7 @@ export default function Breadboard() {
 		});
 		setSelected({ kind: "part", id });
 		setProbe(timerHole(col, 3));
-		setHint("Pin 1 is pink. Count counter-clockwise from the notch.");
+		setHint("Pin 1 is the light mark. Count counter-clockwise from the notch.");
 	}
 
 	function placePot(hole: Hole) {
@@ -1214,7 +1214,7 @@ export default function Breadboard() {
 									onClick={() => chooseTool(item.id)}
 									className={`rounded-full px-3 py-1.5 text-left text-sm ${
 										tool === item.id
-											? "bg-[#fecef5] text-[#191b1a]"
+											? "bg-[#e4e0d6] text-[#191b1a]"
 											: "text-[#f4efe8] hover:bg-white/10"
 									}`}
 								>
@@ -1246,7 +1246,7 @@ export default function Breadboard() {
 										className="h-5 w-5 rounded-full border border-white/30"
 										style={{
 											background: color,
-											outline: wireColor === color ? "2px solid #fecef5" : undefined,
+											outline: wireColor === color ? "2px solid #e4e0d6" : undefined,
 											outlineOffset: 1,
 										}}
 									/>
@@ -1299,7 +1299,7 @@ export default function Breadboard() {
 							aria-pressed={sound}
 							onClick={toggleSound}
 							className={`mt-3 rounded-full px-3 py-1.5 text-sm ${
-								sound ? "bg-[#fecef5] text-[#191b1a]" : "bg-white/10 text-[#f4efe8]"
+								sound ? "bg-[#e4e0d6] text-[#191b1a]" : "bg-white/10 text-[#f4efe8]"
 							}`}
 						>
 							{sound ? "Sound on" : "Sound off"}
@@ -1332,7 +1332,7 @@ export default function Breadboard() {
 					<div className="min-w-0">
 						{hint ? <p className="mb-2 text-xs text-[#f4efe8]/55">{hint}</p> : null}
 						{pending ? (
-							<p className="mb-2 text-xs text-[#fecef5]">Click the second hole. Escape cancels.</p>
+							<p className="mb-2 text-xs text-[#e4e0d6]">Click the second hole. Escape cancels.</p>
 						) : null}
 						<div className="overflow-x-auto">
 							<svg
@@ -1394,7 +1394,7 @@ export default function Breadboard() {
 												<path
 													d={curve.d}
 													fill="none"
-													stroke="#fecef5"
+													stroke="#e4e0d6"
 													strokeWidth={8}
 													strokeLinecap="round"
 													opacity={0.7}
@@ -1475,7 +1475,7 @@ export default function Breadboard() {
 										cy={holeXY(probe).y}
 										r={6}
 										fill="none"
-										stroke="#fecef5"
+										stroke="#e4e0d6"
 										strokeWidth={1.5}
 										pointerEvents="none"
 									/>
@@ -1494,7 +1494,7 @@ export default function Breadboard() {
 								<path
 									ref={ghostRef}
 									fill="none"
-									stroke="#fecef5"
+									stroke="#e4e0d6"
 									strokeWidth={2.4}
 									strokeDasharray="5 4"
 									opacity={0}
@@ -1503,7 +1503,7 @@ export default function Breadboard() {
 								<rect
 									ref={timerGhostRef}
 									fill="rgba(254,206,245,0.16)"
-									stroke="#fecef5"
+									stroke="#e4e0d6"
 									strokeDasharray="4 3"
 									rx={4}
 									opacity={0}
@@ -1512,7 +1512,7 @@ export default function Breadboard() {
 								<rect
 									ref={potGhostRef}
 									fill="rgba(254,206,245,0.16)"
-									stroke="#fecef5"
+									stroke="#e4e0d6"
 									strokeDasharray="4 3"
 									rx={5}
 									opacity={0}
@@ -1553,7 +1553,7 @@ export default function Breadboard() {
 															part.type === "resistor" ? { ...part, ohms } : part,
 														)
 													}
-													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#fecef5]"
+													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#e4e0d6]"
 												>
 													{formatOhms(ohms)}
 												</button>
@@ -1576,7 +1576,7 @@ export default function Breadboard() {
 													part.type === "pot" ? { ...part, position } : part,
 												);
 											}}
-											className="mt-2 w-full accent-[#fecef5]"
+											className="mt-2 w-full accent-[#e4e0d6]"
 										/>
 										<p className="mt-3 text-sm">Track {formatOhms(selectedPart.ohms)}</p>
 										<LogSlider
@@ -1599,7 +1599,7 @@ export default function Breadboard() {
 															part.type === "pot" ? { ...part, ohms } : part,
 														)
 													}
-													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#fecef5]"
+													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#e4e0d6]"
 												>
 													{formatOhms(ohms)}
 												</button>
@@ -1634,7 +1634,7 @@ export default function Breadboard() {
 															part.type === "capacitor" ? { ...part, farads } : part,
 														)
 													}
-													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#fecef5]"
+													className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] hover:border-[#e4e0d6]"
 												>
 													{formatFarads(farads)}
 												</button>
@@ -1657,7 +1657,7 @@ export default function Breadboard() {
 												className="h-6 w-6 rounded-full border"
 												style={{
 													background: LED_COLOR[color],
-													borderColor: selectedPart.color === color ? "#fecef5" : "transparent",
+													borderColor: selectedPart.color === color ? "#e4e0d6" : "transparent",
 												}}
 											/>
 										))}
@@ -1676,7 +1676,7 @@ export default function Breadboard() {
 												}
 												className={`rounded-full px-3 py-1 text-sm ${
 													selectedPart.volts === volts
-														? "bg-[#fecef5] text-[#191b1a]"
+														? "bg-[#e4e0d6] text-[#191b1a]"
 														: "bg-white/10"
 												}`}
 											>

@@ -1,5 +1,11 @@
 @theme {
-	--color-primary: #534e50;
-	--color-primary-light: #fecef5;
-	--color-slate: #191b1a;
+	--color-primary: #1c1e1f;
+	--color-primary-light: #d5e2e8;
+	--color-slate: #1c1e1f;
+	--color-paper: #f7f7f4;
+	--color-ink: #1c1e1f;
+	--color-graphite: #5e656a;
+	--color-rule: #d8d9d4;
+	--color-steel: #8ea4b2;
+	--color-mist: #c5d3db;
 }

@@ -19,8 +19,8 @@ function emptyPattern(): boolean[][] {
 }
 
 function cellTone(on: boolean, current: boolean, downbeat: boolean): string {
-	if (on && current) return "bg-[#fecef5] text-[#191b1a]";
-	if (on) return "bg-[#fecef5]/80 text-[#191b1a] hover:bg-[#fecef5]";
+	if (on && current) return "bg-[#e4e0d6] text-[#191b1a]";
+	if (on) return "bg-[#e4e0d6]/80 text-[#191b1a] hover:bg-[#e4e0d6]";
 	if (current) return "bg-white/25 text-[#f4efe8]/70";
 	if (downbeat) return "bg-white/10 text-[#f4efe8]/40 hover:bg-white/20";
 	return "bg-white/[0.06] text-[#f4efe8]/35 hover:bg-white/15";
@@ -148,7 +148,7 @@ export default function Sequencer() {
 				className="rounded-3xl bg-[#191b1a] p-4 text-[#f4efe8] sm:p-5"
 			>
 				<div>
-					<p className="font-space-grotesk text-lg text-[#fecef5]">Loop</p>
+					<p className="font-space-grotesk text-lg text-[#e4e0d6]">Loop</p>
 					<p className="mt-1 max-w-2xl text-sm leading-6 text-[#f4efe8]/60">
 						Sixteen steps. Kick, snare, and hat are drums. Each bass cell plays the note written on
 						it.
@@ -158,7 +158,7 @@ export default function Sequencer() {
 							type="button"
 							onClick={togglePlay}
 							aria-pressed={playing}
-							className="rounded-full bg-[#fecef5] px-4 py-1.5 text-sm font-medium text-[#191b1a] hover:bg-[#fecef5]/85"
+							className="rounded-full bg-[#e4e0d6] px-4 py-1.5 text-sm font-medium text-[#191b1a] hover:bg-[#e4e0d6]/85"
 						>
 							{playing ? "Stop" : "Play"}
 						</button>
@@ -171,7 +171,7 @@ export default function Sequencer() {
 								value={bpm}
 								aria-label="Tempo"
 								onChange={(event) => setBpm(Number(event.target.value))}
-								className="w-28 accent-[#fecef5]"
+								className="w-28 accent-[#e4e0d6]"
 							/>
 						</label>
 						<button
@@ -219,7 +219,7 @@ export default function Sequencer() {
 										key={step}
 										className={`flex-1 text-center text-[10px] tabular-nums ${stepGap(step)} ${
 											playhead === step
-												? "text-[#fecef5]"
+												? "text-[#e4e0d6]"
 												: step % 4 === 0
 													? "text-[#f4efe8]/55"
 													: "text-[#f4efe8]/30"
@@ -255,7 +255,7 @@ export default function Sequencer() {
 													if (skipClick.current) return;
 													setCell(voice, step, !on);
 												}}
-												className={`h-11 min-w-0 flex-1 rounded-lg text-[10px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#fecef5] focus-visible:ring-offset-1 focus-visible:ring-offset-[#191b1a] ${stepGap(step)} ${cellTone(on, playhead === step, step % 4 === 0)}`}
+												className={`h-11 min-w-0 flex-1 rounded-lg text-[10px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#e4e0d6] focus-visible:ring-offset-1 focus-visible:ring-offset-[#191b1a] ${stepGap(step)} ${cellTone(on, playhead === step, step % 4 === 0)}`}
 											>
 												{note}
 											</button>

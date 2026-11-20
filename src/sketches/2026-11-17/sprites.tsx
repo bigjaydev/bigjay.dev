@@ -23,7 +23,7 @@ const PALETTE: Record<string, string> = {
 	C: "#3d5168",
 	t: "#241c18",
 	T: "#d4a24a",
-	y: "#fecef5",
+	y: "#e4e0d6",
 	Y: "#e7a8d4",
 	z: "#f25c1d",
 	o: "#c9b89a",
@@ -307,7 +307,7 @@ function Burst() {
 			<rect x="10" y="4" width="2" height="2" fill="#fffdf8" />
 			<rect x="4" y="10" width="2" height="2" fill="#1c1d21" />
 			<rect x="10" y="10" width="2" height="2" fill="#1c1d21" />
-			<rect x="6" y="6" width="4" height="4" fill="#fecef5" />
+			<rect x="6" y="6" width="4" height="4" fill="#e4e0d6" />
 		</svg>
 	);
 }

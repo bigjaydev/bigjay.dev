@@ -5,7 +5,7 @@ export const MAP_HEIGHT = 1024;
 
 const OCEAN = "#1a2624";
 const BORDER = "rgba(83, 78, 80, 0.72)";
-const HIGHLIGHT = "#fecef5";
+const HIGHLIGHT = "#e4e0d6";
 
 export type WorldMapCanvas = {
 	countries: Country[];

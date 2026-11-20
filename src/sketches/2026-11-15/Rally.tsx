@@ -214,7 +214,7 @@ export default function Rally() {
 					event.currentTarget.releasePointerCapture(event.pointerId);
 				}
 			}}
-			className={`relative w-full touch-none outline-none select-none focus-within:ring-2 focus-within:ring-[#fecef5] ${panel.mode === "drive" ? "cursor-crosshair" : ""}`}
+			className={`relative w-full touch-none outline-none select-none focus-within:ring-2 focus-within:ring-[#e4e0d6] ${panel.mode === "drive" ? "cursor-crosshair" : ""}`}
 		>
 			<canvas ref={canvasRef} className="block h-full w-full bg-[#100e0c]" />
 			{panel.mode !== "drive" ? (

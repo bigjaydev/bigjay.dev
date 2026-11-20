@@ -6,7 +6,7 @@ import { decodeCountries } from "./countries";
 import { fetchHeadlines, formatPublished, type Headline } from "./headlines";
 import { countryAt, createWorldMap, paintHighlight, type WorldMapCanvas } from "./paint";
 
-const glowColor = new THREE.Color("#fecef5");
+const glowColor = new THREE.Color("#e4e0d6");
 
 const atmosphereVertex = /* glsl */ `
 	varying vec3 vNormal;
@@ -54,7 +54,7 @@ function Stars() {
 
 	return (
 		<points geometry={geometry}>
-			<pointsMaterial color="#fecef5" size={0.018} sizeAttenuation transparent opacity={0.75} />
+			<pointsMaterial color="#e4e0d6" size={0.018} sizeAttenuation transparent opacity={0.75} />
 		</points>
 	);
 }
@@ -190,7 +190,7 @@ function Globe({
 			<Stars />
 			<ambientLight intensity={0.38} />
 			<directionalLight position={[4.5, 2.2, 3.4]} intensity={2.4} color="#fff4ea" />
-			<directionalLight position={[-3.5, -1.4, -2]} intensity={0.35} color="#fecef5" />
+			<directionalLight position={[-3.5, -1.4, -2]} intensity={0.35} color="#e4e0d6" />
 			<mesh scale={1.18} raycast={() => null}>
 				<sphereGeometry args={[1, 64, 64]} />
 				<shaderMaterial
@@ -287,10 +287,10 @@ export default function WorldMap() {
 					<Globe map={map} selected={selected} onHover={setHovered} onSelect={setSelected} />
 				</Canvas>
 				<div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
-					<p className="font-space-grotesk text-xl text-[#fecef5]">
+					<p className="font-space-grotesk text-xl text-[#e4e0d6]">
 						{hovered ?? selected ?? "World"}
 					</p>
-					<p className="text-xs tracking-[0.16em] text-[#fecef5]/70 uppercase">
+					<p className="text-xs tracking-[0.16em] text-[#e4e0d6]/70 uppercase">
 						Click for today’s headlines
 					</p>
 				</div>

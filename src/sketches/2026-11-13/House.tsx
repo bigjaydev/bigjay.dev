@@ -167,7 +167,7 @@ export default function House() {
 		<div className="mx-auto max-w-4xl px-6 pb-20" data-house data-room={game.room} data-ending={game.ending ?? "playing"} data-dread={game.dread} data-voice={voice.phase}>
 			<div
 				className="overflow-hidden rounded-md bg-[#14110e] text-[#e7ded2]"
-				style={game.lit && !ended ? { boxShadow: "inset 0 2px 0 #fecef5" } : undefined}
+				style={game.lit && !ended ? { boxShadow: "inset 0 2px 0 #e4e0d6" } : undefined}
 			>
 				<Scene
 					room={game.room}
@@ -192,7 +192,7 @@ export default function House() {
 								<span
 									key={id}
 									aria-current="location"
-									className="justify-self-center rounded-full bg-[#fecef5] px-3 py-1 text-[#1a120f]"
+									className="justify-self-center rounded-full bg-[#e4e0d6] px-3 py-1 text-[#1a120f]"
 								>
 									{ROOM_LABEL[id]}
 								</span>
@@ -205,7 +205,7 @@ export default function House() {
 									type="button"
 									disabled={busy}
 									onClick={() => void run(`go ${id}`, `Go to ${PLACE[id]}`)}
-									className="justify-self-center rounded-full border border-[#fecef5]/50 px-3 py-1 text-[#fecef5] hover:bg-[#fecef5]/10 disabled:opacity-40"
+									className="justify-self-center rounded-full border border-[#e4e0d6]/50 px-3 py-1 text-[#e4e0d6] hover:bg-[#e4e0d6]/10 disabled:opacity-40"
 								>
 									{ROOM_LABEL[id]}
 								</button>
@@ -242,7 +242,7 @@ export default function House() {
 						<button
 							type="button"
 							onClick={restart}
-							className="rounded-full border border-[#fecef5]/70 px-3 py-1 text-sm text-[#fecef5] hover:bg-[#fecef5]/10"
+							className="rounded-full border border-[#e4e0d6]/70 px-3 py-1 text-sm text-[#e4e0d6] hover:bg-[#e4e0d6]/10"
 						>
 							Begin again
 						</button>
@@ -255,8 +255,8 @@ export default function House() {
 								onClick={() => void run(action.command, action.label)}
 								className={`rounded-full border px-3 py-1 text-sm disabled:opacity-40 ${
 									action.emphasis
-										? "border-[#fecef5]/70 text-[#fecef5] hover:bg-[#fecef5]/10"
-										: "border-white/15 text-[#e6dccf] hover:border-[#fecef5] hover:text-[#fecef5]"
+										? "border-[#e4e0d6]/70 text-[#e4e0d6] hover:bg-[#e4e0d6]/10"
+										: "border-white/15 text-[#e6dccf] hover:border-[#e4e0d6] hover:text-[#e4e0d6]"
 								}`}
 							>
 								{action.label}
@@ -285,12 +285,12 @@ export default function House() {
 							autoCorrect="off"
 							spellCheck={false}
 							disabled={busy}
-							className="min-w-0 flex-1 border-b border-white/20 bg-transparent py-2 text-[#f3eadf] outline-none placeholder:text-[#6e6256] focus:border-[#fecef5] disabled:opacity-40"
+							className="min-w-0 flex-1 border-b border-white/20 bg-transparent py-2 text-[#f3eadf] outline-none placeholder:text-[#6e6256] focus:border-[#e4e0d6] disabled:opacity-40"
 						/>
 						<button
 							type="submit"
 							disabled={busy || command.trim() === ""}
-							className="text-sm text-[#fecef5] disabled:opacity-40"
+							className="text-sm text-[#e4e0d6] disabled:opacity-40"
 						>
 							Do
 						</button>
@@ -314,7 +314,7 @@ function Dread({ value }: { value: number }) {
 			{Array.from({ length: DREAD_MAX }, (_, index) => (
 				<span
 					key={index}
-					className={index < value ? "h-3 w-1.5 bg-[#fecef5]" : "h-3 w-1.5 border border-white/30"}
+					className={index < value ? "h-3 w-1.5 bg-[#e4e0d6]" : "h-3 w-1.5 border border-white/30"}
 				/>
 			))}
 		</p>
@@ -331,7 +331,7 @@ function Voice({ voice, onWake, onSilence }: { voice: VoiceState; onWake: () => 
 					<button
 						type="button"
 						onClick={onWake}
-						className="rounded-full border border-[#fecef5]/50 px-3 py-1 text-[#fecef5] hover:bg-[#fecef5]/10"
+						className="rounded-full border border-[#e4e0d6]/50 px-3 py-1 text-[#e4e0d6] hover:bg-[#e4e0d6]/10"
 					>
 						{wakeLabel(voice.availability)}
 					</button>
@@ -344,7 +344,7 @@ function Voice({ voice, onWake, onSilence }: { voice: VoiceState; onWake: () => 
 			{voice.phase === "ready" && (
 				<div className="flex flex-wrap items-center gap-3">
 					<p>Dungeon master: this browser, on this device.</p>
-					<button type="button" onClick={onSilence} className="underline decoration-white/30 underline-offset-2 hover:text-[#fecef5]">
+					<button type="button" onClick={onSilence} className="underline decoration-white/30 underline-offset-2 hover:text-[#e4e0d6]">
 						Use the house&apos;s own words
 					</button>
 				</div>

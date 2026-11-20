@@ -188,7 +188,7 @@ function Notes({ cards }: { cards: Card[] }) {
 					onClick={() => {
 						pendingFocus.current = addCard();
 					}}
-					className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+					className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 				>
 					Add a note
 				</button>
@@ -227,9 +227,9 @@ function nodeTone(
 	forward: boolean,
 	isRedo: boolean,
 ): string {
-	if (id === currentId) return "bg-[#fecef5] text-[#191b1a]";
-	if (sibling) return "bg-[#fecef5]/10 text-[#f4efe8] ring-1 ring-[#fecef5]/55";
-	if (isRedo) return "bg-white/10 text-[#f4efe8] ring-1 ring-[#fecef5]/70";
+	if (id === currentId) return "bg-[#e4e0d6] text-[#191b1a]";
+	if (sibling) return "bg-[#e4e0d6]/10 text-[#f4efe8] ring-1 ring-[#e4e0d6]/55";
+	if (isRedo) return "bg-white/10 text-[#f4efe8] ring-1 ring-[#e4e0d6]/70";
 	if (forward) return "bg-white/10 text-[#f4efe8]/90 ring-1 ring-white/15";
 	if (onPath) return "bg-white/10 text-[#f4efe8]";
 	return "bg-white/[0.03] text-[#f4efe8]/50 ring-1 ring-white/10";
@@ -296,7 +296,7 @@ function History({
 			{
 				id: node.id,
 				d: `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`,
-				stroke: onPath || fork ? "#fecef5" : "rgba(244,239,232,0.22)",
+				stroke: onPath || fork ? "#e4e0d6" : "rgba(244,239,232,0.22)",
 				width: onPath ? 1.75 : 1.25,
 				opacity: onPath ? 1 : fork ? 0.55 : 1,
 			},
@@ -414,7 +414,7 @@ export default function UndoTree() {
 			<div className="rounded-3xl bg-[#191b1a] p-4 text-[#f4efe8] sm:p-5">
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
-						<p className="font-space-grotesk text-lg text-[#fecef5]">Versions</p>
+						<p className="font-space-grotesk text-lg text-[#e4e0d6]">Versions</p>
 						<p className="mt-1 max-w-xl text-sm leading-6 text-[#f4efe8]/60">
 							Typing, adding, removing, and reordering each leave a node. Undo steps to the parent.
 							Edit from there and the path you left stays beside the new one.
@@ -447,7 +447,7 @@ export default function UndoTree() {
 					<section className="min-w-0">
 						<div className="mb-2 flex items-baseline justify-between gap-3">
 							<h2 className="text-sm text-[#f4efe8]/70">History</h2>
-							<p className="truncate text-xs text-[#fecef5]">
+							<p className="truncate text-xs text-[#e4e0d6]">
 								{current.label}
 								<span className="text-[#f4efe8]/45"> · {current.detail}</span>
 							</p>
@@ -456,11 +456,11 @@ export default function UndoTree() {
 						<p className="mt-2 text-xs leading-5 text-[#f4efe8]/55">{hereText(current)}</p>
 						<ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#f4efe8]/45">
 							<li className="flex items-center gap-1.5">
-								<span className="h-2.5 w-2.5 rounded-sm bg-[#fecef5]" />
+								<span className="h-2.5 w-2.5 rounded-sm bg-[#e4e0d6]" />
 								Here
 							</li>
 							<li className="flex items-center gap-1.5">
-								<span className="h-2.5 w-2.5 rounded-sm bg-[#fecef5]/20 ring-1 ring-[#fecef5]/55" />
+								<span className="h-2.5 w-2.5 rounded-sm bg-[#e4e0d6]/20 ring-1 ring-[#e4e0d6]/55" />
 								Other branch
 							</li>
 							<li className="flex items-center gap-1.5">

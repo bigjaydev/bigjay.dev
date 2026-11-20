@@ -493,13 +493,13 @@ function ShapeView({
 			</mesh>
 			{lines.getAttribute("position") && (
 				<lineSegments geometry={lines} raycast={skipRaycast}>
-					<lineBasicMaterial color={shapeSelected ? "#fecef5" : active ? "#d9cec3" : "#8f857a"} />
+					<lineBasicMaterial color={shapeSelected ? "#e4e0d6" : active ? "#d9cec3" : "#8f857a"} />
 				</lineSegments>
 			)}
 			{overlay && (
 				<mesh geometry={overlay} renderOrder={2} raycast={skipRaycast}>
 					<meshBasicMaterial
-						color="#fecef5"
+						color="#e4e0d6"
 						transparent
 						opacity={0.72}
 						depthWrite={false}
@@ -535,7 +535,7 @@ function ShapeView({
 							key={key}
 							a={start}
 							b={end}
-							color={lineSet.has(key) ? "#fecef5" : "#fff6ee"}
+							color={lineSet.has(key) ? "#e4e0d6" : "#fff6ee"}
 							radius={lineSet.has(key) ? 0.028 : 0.018}
 						/>
 					);
@@ -548,7 +548,7 @@ function ShapeView({
 						<mesh key={index} position={vertex} renderOrder={5} raycast={skipRaycast}>
 							<sphereGeometry args={[selected || hot ? 0.055 : 0.038, 12, 10]} />
 							<meshBasicMaterial
-								color={selected ? "#fecef5" : hot ? "#fff6ee" : "#f3ecdf"}
+								color={selected ? "#e4e0d6" : hot ? "#fff6ee" : "#f3ecdf"}
 								toneMapped={false}
 							/>
 						</mesh>
@@ -587,12 +587,12 @@ function Gizmo({ origin, hot }: { origin: Vec3; hot: Axis | null }) {
 	return (
 		<group ref={ref} position={origin}>
 			{(["x", "y", "z"] as const).map((axis) => (
-				<Arrow key={axis} axis={axis} color={hot === axis ? "#fecef5" : colors[axis]} />
+				<Arrow key={axis} axis={axis} color={hot === axis ? "#e4e0d6" : colors[axis]} />
 			))}
 			<mesh renderOrder={9} raycast={skipRaycast}>
 				<sphereGeometry args={[0.07, 16, 12]} />
 				<meshBasicMaterial
-					color={hot === "free" ? "#fecef5" : "#f4efe8"}
+					color={hot === "free" ? "#e4e0d6" : "#f4efe8"}
 					depthTest={false}
 					toneMapped={false}
 				/>
@@ -1431,7 +1431,7 @@ function Sidebar({
 									onClick={(event) => onShape(mesh.id, event.shiftKey)}
 									className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
 										selected
-											? "bg-[#fecef5] text-[#191b1a]"
+											? "bg-[#e4e0d6] text-[#191b1a]"
 											: active
 												? "bg-white/10 text-[#f4efe8]"
 												: "text-[#f4efe8]/80 hover:bg-white/10"
@@ -1478,7 +1478,7 @@ function RailButton({
 			onClick={onClick}
 			className={`flex items-center gap-2 rounded-md text-left text-sm disabled:cursor-not-allowed disabled:opacity-35 ${
 				compact ? "flex-1 justify-center px-2 py-1.5" : "w-full px-2 py-1.5"
-			} ${pressed ? "bg-[#fecef5] text-[#191b1a]" : "text-[#f4efe8]/85 hover:bg-white/10"}`}
+			} ${pressed ? "bg-[#e4e0d6] text-[#191b1a]" : "text-[#f4efe8]/85 hover:bg-white/10"}`}
 		>
 			<Icon className="size-4 shrink-0" strokeWidth={1.75} />
 			{compact ? <span className="sr-only">{label}</span> : <span className="flex-1">{label}</span>}
@@ -1534,7 +1534,7 @@ function AddMenu({
 			<p className="px-3 py-1 text-[11px] tracking-[0.16em] text-[#f4efe8]/40 uppercase">Add</p>
 			<div className="relative">
 				<div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 text-sm">
-					<Boxes className="size-4 text-[#fecef5]" strokeWidth={1.75} />
+					<Boxes className="size-4 text-[#e4e0d6]" strokeWidth={1.75} />
 					<span className="flex-1">Mesh</span>
 					<ChevronRight className="size-3.5 text-[#f4efe8]/50" />
 				</div>
@@ -1548,7 +1548,7 @@ function AddMenu({
 							key={shape.kind}
 							type="button"
 							onClick={() => onAdd(shape.kind)}
-							className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-[#fecef5] hover:text-[#191b1a]"
+							className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-[#e4e0d6] hover:text-[#191b1a]"
 						>
 							<shape.icon className="size-4" strokeWidth={1.75} />
 							{shape.label}

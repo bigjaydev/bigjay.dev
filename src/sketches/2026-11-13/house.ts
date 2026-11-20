@@ -455,7 +455,7 @@ function light(game: Game): Turn {
 	if (game.lit) return line(game, "The candle is already burning.", "Already lit.", false);
 	return line(
 		{ ...game, lit: true },
-		"The match catches. The candle burns a pale pink, and the room steps back a little.",
+		"The match catches. The candle burns a pale flame, and the room steps back a little.",
 		"The player lights the candle.",
 		true,
 	);
@@ -715,7 +715,7 @@ function examineItem(game: Game, item: ItemId): Turn {
 	if (item === "candle") {
 		return line(
 			game,
-			game.lit ? "The candle burns that pale pink. It will do for the cellar." : "A candle. It needs a match.",
+			game.lit ? "The candle burns a pale flame. It will do for the cellar." : "A candle. It needs a match.",
 			"The candle.",
 			true,
 		);

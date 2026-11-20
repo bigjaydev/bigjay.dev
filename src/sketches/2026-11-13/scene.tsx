@@ -25,9 +25,9 @@ export default function Scene({
 		<svg viewBox="0 0 640 208" className="h-auto w-full bg-[#14110e]" aria-hidden="true">
 			<defs>
 				<radialGradient id="house-glow" cx="50%" cy="50%" r="50%">
-					<stop offset="0%" stopColor="#fecef5" stopOpacity="0.55" />
-					<stop offset="70%" stopColor="#fecef5" stopOpacity="0.08" />
-					<stop offset="100%" stopColor="#fecef5" stopOpacity="0" />
+					<stop offset="0%" stopColor="#e4e0d6" stopOpacity="0.55" />
+					<stop offset="70%" stopColor="#e4e0d6" stopOpacity="0.08" />
+					<stop offset="100%" stopColor="#e4e0d6" stopOpacity="0" />
 				</radialGradient>
 			</defs>
 			{ending === "out" ? (
@@ -61,13 +61,13 @@ function You({ x, foot, lit }: { x: number; foot: number; lit: boolean }) {
 	return (
 		<g>
 			{lit && <circle cx={x + 18} cy={foot - 36} r="28" fill="url(#house-glow)" className="motion-safe:animate-pulse" />}
-			<g {...stroke()} stroke="#fecef5">
+			<g {...stroke()} stroke="#e4e0d6">
 				<circle cx={x} cy={foot - 52} r="7" />
 				<path d={`M${x} ${foot - 45} V${foot - 16}`} />
 				<path d={`M${x - 12} ${foot - 32} H${x + 16}`} />
 				<path d={`M${x} ${foot - 16} l-9 16 M${x} ${foot - 16} l8 16`} />
 			</g>
-			{lit && <circle cx={x + 18} cy={foot - 36} r="2.4" fill="#fecef5" />}
+			{lit && <circle cx={x + 18} cy={foot - 36} r="2.4" fill="#e4e0d6" />}
 		</g>
 	);
 }
@@ -87,8 +87,8 @@ function Foyer({ hasKey, nameKnown }: { hasKey: boolean; nameKnown: boolean }) {
 				<g>
 					<rect x="268" y="36" width="104" height="126" />
 					<path d="M320 36 V162" />
-					<circle cx="348" cy="104" r="3.5" fill={hasKey ? "#fecef5" : BONE} stroke="none" />
-					{nameKnown && <rect x="280" y="156" width="80" height="3" fill="#fecef5" stroke="none" />}
+					<circle cx="348" cy="104" r="3.5" fill={hasKey ? "#e4e0d6" : BONE} stroke="none" />
+					{nameKnown && <rect x="280" y="156" width="80" height="3" fill="#e4e0d6" stroke="none" />}
 				</g>
 			)}
 			<path d="M390 162 V138 H418 V116 H446 V94 H474" />
@@ -119,7 +119,7 @@ function Dining({ candle }: { candle: boolean }) {
 			{candle && (
 				<g>
 					<rect x="314" y="78" width="12" height="28" />
-					<path d="M320 78 C326 70 318 64 320 56 C322 64 314 70 320 78" fill="#fecef5" stroke="none" />
+					<path d="M320 78 C326 70 318 64 320 56 C322 64 314 70 320 78" fill="#e4e0d6" stroke="none" />
 				</g>
 			)}
 			<rect x="360" y="128" width="18" height="8" transform="rotate(-8 369 132)" />

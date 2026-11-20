@@ -30,7 +30,7 @@ const CMPS: { id: Cmp; label: string }[] = [
 ];
 
 const control =
-	"max-w-full rounded-lg bg-[#191b1a] px-2 py-1 text-sm text-[#f4efe8] ring-1 ring-white/10 outline-none focus:ring-[#fecef5]/70";
+	"max-w-full rounded-lg bg-[#191b1a] px-2 py-1 text-sm text-[#f4efe8] ring-1 ring-white/10 outline-none focus:ring-[#e4e0d6]/70";
 
 type Draft = {
 	rows: string[];
@@ -271,7 +271,7 @@ export default function Wrangler() {
 			<div className="rounded-3xl bg-[#191b1a] p-4 text-[#f4efe8] sm:p-5">
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
-						<p className="font-space-grotesk text-lg text-[#fecef5]">Structure</p>
+						<p className="font-space-grotesk text-lg text-[#e4e0d6]">Structure</p>
 						<p className="mt-1 max-w-xl text-sm leading-6 text-[#f4efe8]/60">
 							Move any columns between row keys, headers, and values. Keep the shape, then do it
 							again to the table you just made.
@@ -292,7 +292,7 @@ export default function Wrangler() {
 							aria-pressed={sourceLabel === sample.id && steps.length === 0}
 							className={`rounded-full px-2.5 py-1 text-xs ${
 								sourceLabel === sample.id
-									? "bg-[#fecef5] text-[#191b1a]"
+									? "bg-[#e4e0d6] text-[#191b1a]"
 									: "text-[#f4efe8]/80 hover:underline"
 							}`}
 							onClick={() => loadSource(sample.frame, sample.id)}
@@ -330,7 +330,7 @@ export default function Wrangler() {
 						<div className="mt-2 flex items-center gap-3">
 							<button
 								type="button"
-								className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+								className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 								onClick={() => {
 									try {
 										loadSource(parseCsv(csv), "pasted");
@@ -449,10 +449,10 @@ export default function Wrangler() {
 
 				{dirty ? (
 					<div className="mt-3 flex flex-wrap items-center gap-2">
-						<p className="text-xs leading-5 text-[#fecef5]">{describeDraft(active)}</p>
+						<p className="text-xs leading-5 text-[#e4e0d6]">{describeDraft(active)}</p>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a] disabled:opacity-30"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a] disabled:opacity-30"
 							disabled={blocked || previewError != null}
 							onClick={() => {
 								if (!draftStep || previewError) return;
@@ -618,7 +618,7 @@ export default function Wrangler() {
 						/>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 							onClick={() =>
 								append({
 									id: uid(),
@@ -658,7 +658,7 @@ export default function Wrangler() {
 						/>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 							onClick={() =>
 								append({ id: uid(), kind: "unite", columns: selected, into: uniteName, sep })
 							}
@@ -690,7 +690,7 @@ export default function Wrangler() {
 						/>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 							onClick={() =>
 								append({ id: uid(), kind: "filter", column: one, cmp, value: filterValue })
 							}
@@ -710,7 +710,7 @@ export default function Wrangler() {
 						/>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 							onClick={() => append({ id: uid(), kind: "rename", from: one, to: renameTo })}
 						>
 							Rename
@@ -737,7 +737,7 @@ export default function Wrangler() {
 						/>
 						<button
 							type="button"
-							className="rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]"
+							className="rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]"
 							onClick={() => append({ id: uid(), kind: "derive", name: calcName, expr: calcExpr })}
 						>
 							Add column
@@ -808,11 +808,11 @@ export default function Wrangler() {
 											>
 												<span
 													className={`flex items-center gap-1.5 text-sm ${numeric ? "justify-end" : ""} ${
-														on ? "text-[#fecef5]" : ""
+														on ? "text-[#e4e0d6]" : ""
 													}`}
 												>
 													{fresh ? (
-														<span className="inline-block h-1.5 w-1.5 rounded-full bg-[#fecef5]" />
+														<span className="inline-block h-1.5 w-1.5 rounded-full bg-[#e4e0d6]" />
 													) : null}
 													{column}
 												</span>
@@ -856,7 +856,7 @@ export default function Wrangler() {
 
 				<div className="mt-4 min-w-0 rounded-2xl bg-[#101211] p-4">
 					<div className="mb-2 flex items-center justify-between gap-3">
-						<p className="font-space-grotesk text-sm text-[#fecef5]">pandas</p>
+						<p className="font-space-grotesk text-sm text-[#e4e0d6]">pandas</p>
 						<button
 							type="button"
 							className="text-xs text-[#f4efe8]/70 hover:underline"
@@ -873,7 +873,7 @@ export default function Wrangler() {
 							{copied ? "Copied" : "Copy"}
 						</button>
 					</div>
-					<pre className="m-0 max-w-full overflow-x-auto font-mono text-xs leading-6 text-[#fecef5]">
+					<pre className="m-0 max-w-full overflow-x-auto font-mono text-xs leading-6 text-[#e4e0d6]">
 						{code}
 					</pre>
 					<p className="mt-2 text-[11px] text-[#f4efe8]/40">
@@ -888,7 +888,7 @@ export default function Wrangler() {
 }
 
 function pill(active: boolean, problem?: "error") {
-	if (active) return "shrink-0 rounded-full bg-[#fecef5] px-3 py-1.5 text-sm text-[#191b1a]";
+	if (active) return "shrink-0 rounded-full bg-[#e4e0d6] px-3 py-1.5 text-sm text-[#191b1a]";
 	if (problem === "error")
 		return "shrink-0 rounded-full bg-red-400/15 px-3 py-1.5 text-sm text-red-200";
 	return "shrink-0 rounded-full px-3 py-1.5 text-sm text-[#f4efe8]/75 hover:bg-white/10";
@@ -958,7 +958,7 @@ function Chip({
 			}}
 			onClick={(event) => onSelect(column, event.shiftKey)}
 			className={`cursor-grab rounded-full px-2.5 py-1 text-sm active:cursor-grabbing ${
-				selected ? "bg-[#fecef5] text-[#191b1a]" : "bg-white/10 text-[#f4efe8] hover:bg-white/15"
+				selected ? "bg-[#e4e0d6] text-[#191b1a]" : "bg-white/10 text-[#f4efe8] hover:bg-white/15"
 			}`}
 		>
 			{column}
