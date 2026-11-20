@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&family=Space+Grotesk:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;700&display=swap");
 
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
@@ -13,38 +13,50 @@
 		font-style: normal;
 	}
 
-	.font-display {
-		font-family: "Space Grotesk", sans-serif;
-		font-optical-sizing: auto;
-		font-weight: 500;
-		letter-spacing: -0.03em;
-	}
-
 	.font-mast {
-		font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+		font-family: var(--font-mast);
 		font-weight: 700;
 		letter-spacing: -0.02em;
 		text-transform: uppercase;
 	}
 
-	.date-stroke {
-		color: transparent;
-		-webkit-text-stroke: 1.5px #f7f7f4;
-		font-family: "Space Grotesk", sans-serif;
-		font-weight: 500;
-		letter-spacing: -0.04em;
+	.font-display {
+		font-family: var(--font-display);
+		font-weight: 400;
+		letter-spacing: -0.02em;
+	}
+
+	.font-meta {
+		font-family: var(--font-mono);
+		font-weight: 400;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.font-inter {
-		font-family: "Inter", sans-serif;
+		font-family: var(--font-body);
 		font-optical-sizing: auto;
 		font-weight: <weight>;
 		font-style: normal;
 	}
 
+	.date-stroke {
+		color: transparent;
+		-webkit-text-stroke: 1.5px var(--color-fg-on-media);
+		font-family: var(--font-display);
+		font-weight: 400;
+		letter-spacing: -0.04em;
+	}
+
+	.paper-grain {
+		background-color: var(--color-bg-page);
+		background-image: radial-gradient(rgba(16, 26, 27, 0.04) 0.55px, transparent 0.65px);
+		background-size: 4px 4px;
+	}
+
 	body {
-		font-family: "Inter", sans-serif;
-		background: #f7f7f4;
-		color: #3a3f42;
+		font-family: var(--font-body);
+		background: var(--color-bg-canvas);
+		color: var(--color-fg-default);
 	}
 }

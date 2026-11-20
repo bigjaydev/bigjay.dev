@@ -23,25 +23,27 @@ const dayNum = pubDate.toLocaleDateString("en-AU", { day: "2-digit" });
 ---
 
 <BaseLayout frontmatter={{ title }}>
-	<div class="border-ink bg-paper border-b">
+	<div class="border-border-strong paper-grain border-b">
 		<div class="mx-auto max-w-[1080px] px-6 sm:px-8">
-			<header class="border-ink flex flex-wrap items-end justify-between gap-4 border-b py-4">
-				<a href="/" class="font-mast text-ink w-fit text-4xl leading-[0.8] no-underline">
-					<span class="border-ink block border-b pb-0.5">Bigjay</span>
+			<header
+				class="border-border-strong flex flex-wrap items-end justify-between gap-4 border-b py-4"
+			>
+				<a href="/" class="font-mast text-fg-default w-fit text-4xl leading-[0.8] no-underline">
+					<span class="border-border-strong block border-b pb-0.5">Bigjay</span>
 					<span class="block pt-0.5">Dev</span>
 				</a>
-				<nav class="text-ink flex items-center text-sm">
-					<a href="/" class="pr-4 no-underline">Index</a>
+				<nav class="font-meta text-fg-default flex items-center gap-3 text-[11px]">
+					<a href="/" class="border-border-strong border px-2.5 py-1 no-underline">Index</a>
 					{
 						prev ? (
-							<a href={`/sketches/${prev.id}/`} class="border-ink border-l px-4 no-underline">
+							<a href={`/sketches/${prev.id}/`} class="px-1 py-1 no-underline">
 								Prev
 							</a>
 						) : null
 					}
 					{
 						next ? (
-							<a href={`/sketches/${next.id}/`} class="border-ink border-l pl-4 no-underline">
+							<a href={`/sketches/${next.id}/`} class="px-1 py-1 no-underline">
 								Next
 							</a>
 						) : null
@@ -50,12 +52,12 @@ const dayNum = pubDate.toLocaleDateString("en-AU", { day: "2-digit" });
 			</header>
 			<div class="flex items-end justify-between gap-8 py-6">
 				<div class="min-w-0">
-					<p class="text-graphite text-[11px] tracking-[0.22em] uppercase">{formattedDate}</p>
-					<h1 class="font-display text-ink mt-2 text-4xl sm:text-6xl">{title}</h1>
-					<p class="text-graphite mt-3 max-w-xl text-sm leading-relaxed">{description}</p>
+					<p class="font-meta text-fg-muted text-[11px]">{formattedDate}</p>
+					<h1 class="font-display text-fg-default mt-2 text-4xl sm:text-6xl">{title}</h1>
+					<p class="text-fg-muted mt-3 max-w-xl text-sm leading-relaxed">{description}</p>
 				</div>
 				<p
-					class="date-stroke bg-mist hidden px-4 py-2 text-7xl leading-none sm:block"
+					class="date-stroke bg-bg-media hidden px-4 py-2 text-7xl leading-none sm:block"
 					aria-hidden="true"
 				>
 					{dayNum}

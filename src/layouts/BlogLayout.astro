@@ -10,16 +10,16 @@ const formattedDate = updatedDate.toLocaleDateString("en-AU", {
 ---
 
 <BaseLayout frontmatter={{ title }}>
-	<div class="min-h-svh bg-[#e3e5e1] sm:px-6 sm:py-8">
+	<div class="bg-bg-canvas min-h-svh sm:px-6 sm:py-8">
 		<article
-			class="border-ink bg-paper mx-auto min-h-svh max-w-[760px] border px-6 py-8 sm:min-h-[calc(100svh-4rem)] sm:px-10"
+			class="border-border-strong paper-grain mx-auto min-h-svh max-w-[760px] border px-6 py-8 sm:min-h-[calc(100svh-4rem)] sm:px-10"
 		>
-			<a href="/" class="font-mast text-ink text-4xl leading-[0.8] no-underline">
-				<span class="border-ink block border-b pb-0.5">Bigjay</span>
+			<a href="/" class="font-mast text-fg-default w-fit text-4xl leading-[0.8] no-underline">
+				<span class="border-border-strong block border-b pb-0.5">Bigjay</span>
 				<span class="block pt-0.5">Dev</span>
 			</a>
-			<p class="text-graphite mt-10 text-[11px] tracking-[0.22em] uppercase">{formattedDate}</p>
-			<h1 class="font-display text-ink mt-3 text-5xl">{title}</h1>
+			<p class="font-meta text-fg-muted mt-10 text-[11px]">{formattedDate}</p>
+			<h1 class="font-display text-fg-default mt-3 text-5xl">{title}</h1>
 			<div class="prose prose-neutral mt-8 max-w-none">
 				<slot />
 			</div>

@@ -1,11 +1,58 @@
+/* 01 · Core / Color — primitives from design/blog-design.jpg */
 @theme {
-	--color-primary: #1c1e1f;
-	--color-primary-light: #d5e2e8;
-	--color-slate: #1c1e1f;
-	--color-paper: #f7f7f4;
-	--color-ink: #1c1e1f;
-	--color-graphite: #5e656a;
-	--color-rule: #d8d9d4;
-	--color-steel: #8ea4b2;
-	--color-mist: #c5d3db;
+	--color-neutral-0: #ffffff;
+	--color-neutral-50: #f8f9f9;
+	--color-neutral-100: #eef1f2;
+	--color-neutral-200: #d8dde0;
+	--color-neutral-400: #898e92;
+	--color-neutral-700: #3a454b;
+	--color-neutral-950: #101a1b;
+
+	--color-steel-100: #d5e0e6;
+	--color-steel-200: #b1c2c9;
+	--color-steel-300: #8fb0b9;
+	--color-steel-400: #60828e;
+	--color-steel-500: #5e7f92;
+	--color-steel-700: #344a58;
+	--color-steel-900: #152731;
+
+	--color-frame-300: #99a1a4;
+
+	/* 10 · Theme / Color — semantic roles */
+	--color-bg-page: var(--color-neutral-50);
+	--color-bg-canvas: #e4e8ea;
+	--color-bg-surface: var(--color-neutral-0);
+	--color-bg-media: var(--color-steel-400);
+	--color-bg-footer: var(--color-steel-500);
+	--color-bg-hover: var(--color-steel-100);
+
+	--color-fg-default: var(--color-neutral-950);
+	--color-fg-muted: var(--color-neutral-400);
+	--color-fg-on-media: var(--color-neutral-50);
+
+	--color-border-strong: var(--color-neutral-950);
+	--color-border-subtle: var(--color-neutral-200);
+	--color-border-media: color-mix(in srgb, var(--color-neutral-50) 75%, transparent);
+
+	/* Back-compat aliases used by sketches / older layouts */
+	--color-primary: var(--color-neutral-950);
+	--color-primary-light: var(--color-steel-100);
+	--color-slate: var(--color-neutral-950);
+	--color-paper: var(--color-bg-page);
+	--color-ink: var(--color-fg-default);
+	--color-graphite: var(--color-fg-muted);
+	--color-rule: var(--color-border-subtle);
+	--color-steel: var(--color-steel-400);
+	--color-mist: var(--color-steel-300);
+
+	/* 02 · Core / Dimension */
+	--spacing-page-x: 2rem;
+	--spacing-section: 2.5rem;
+	--radius-none: 0px;
+
+	/* 03 · Core / Typography */
+	--font-mast: "Barlow Condensed", "Arial Narrow", sans-serif;
+	--font-display: "Libre Baskerville", "Iowan Old Style", Georgia, serif;
+	--font-body: "Inter", sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
