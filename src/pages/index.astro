@@ -1,10 +1,9 @@
 ---
 import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { byNewest } from "../lib/sketches";
 
-const sketches = (await getCollection("sketches")).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-);
+const sketches = (await getCollection("sketches")).sort(byNewest);
 const latest = sketches[0];
 const recent = sketches.slice(1, 4);
 const earlier = sketches.slice(4);

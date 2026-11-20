@@ -1,6 +1,7 @@
 ---
 import { getCollection, getEntry, render } from "astro:content";
 import SketchLayout from "../../layouts/SketchLayout.astro";
+import { byOldest } from "../../lib/sketches";
 
 export async function getStaticPaths() {
 	const sketches = await getCollection("sketches");
@@ -9,9 +10,7 @@ export async function getStaticPaths() {
 	}));
 }
 
-const sketches = (await getCollection("sketches")).sort(
-	(a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf(),
-);
+const sketches = (await getCollection("sketches")).sort(byOldest);
 const sketch = await getEntry("sketches", Astro.params.slug!);
 
 if (!sketch) {
