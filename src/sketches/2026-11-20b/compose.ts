@@ -291,8 +291,9 @@ function layerTrees(
 				// Near rows plant past the bottom edge so only crowns/upper halves remain in frame.
 				const overshoot = lerp(-10, 110, Math.pow(rowT, 1.15));
 				baseY = lerp(ridgeY + 8, h + overshoot, slopeT) + (rand() - 0.45) * 14;
-				const visible = Math.max(0.2, 1 - overshoot / 160);
-				height = lerp(32, 170, Math.pow(rowT, 0.8)) * visible * (0.85 + rand() * 0.35);
+				// Lower in the frame = closer = larger, with local variation.
+				const depth = clamp((baseY - ridgeY) / Math.max(80, h + 90 - ridgeY), 0, 1);
+				height = lerp(26, 175, Math.pow(depth, 0.9)) * (0.78 + rand() * 0.44);
 			} else {
 				const floor = ridgeY + Math.max(80, layerBottom - ridgeY);
 				baseY = clamp(
