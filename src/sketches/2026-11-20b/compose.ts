@@ -104,6 +104,39 @@ function pick<T>(rand: () => number, items: T[]): T {
 	return items[Math.floor(rand() * items.length)] ?? items[0]!;
 }
 
+function shadeHex(hex: string, delta: number): string {
+	const raw = hex.replace("#", "");
+	if (raw.length !== 6) return hex;
+	const channel = (start: number) => {
+		const value = clamp(parseInt(raw.slice(start, start + 2), 16) + delta, 0, 255);
+		return value.toString(16).padStart(2, "0");
+	};
+	return `#${channel(0)}${channel(2)}${channel(4)}`;
+}
+
+type ShadeField = { ax: number; ay: number; bx: number; by: number; cx: number; cy: number };
+
+function makeShadeField(rand: () => number): ShadeField {
+	return {
+		ax: 0.006 + rand() * 0.01,
+		ay: 0.008 + rand() * 0.012,
+		bx: 0.014 + rand() * 0.02,
+		by: 0.01 + rand() * 0.016,
+		cx: rand() * Math.PI * 2,
+		cy: rand() * Math.PI * 2,
+	};
+}
+
+/** Spatial shade so neighbors share tone; clumps instead of speckles. */
+function clumpedTreeFill(base: string, x: number, y: number, field: ShadeField): string {
+	const wave =
+		Math.sin(x * field.ax + y * field.ay + field.cx) * 0.55 +
+		Math.sin(x * field.bx - y * field.by + field.cy) * 0.35 +
+		Math.sin((x + y) * 0.0045 + field.cx * 0.5) * 0.1;
+	const delta = Math.round(wave * 5);
+	return shadeHex(base, clamp(delta, -6, 5));
+}
+
 function sampleColors(colors: string[], count: number): string[] {
 	if (count <= 1) return [colors[colors.length - 1]!];
 	if (count === colors.length) return [...colors];
@@ -224,58 +257,55 @@ function layerTrees(
 	const pines: Pine[] = [];
 	// Front crowns the landmass. Back/mid layers fill the whole slope body as a forest field.
 	const rows = front
-		? 3 + Math.round(lerp(1, 2, amount))
+		? 8 + Math.round(lerp(2, 4, amount))
 		: 14 + Math.round(lerp(8, 4, contrast) * lerp(1, 1.3, amount));
-	const heightBase = front ? lerp(48, 110, amount) : lerp(14, 72, contrast);
+	const heightBase = front ? lerp(36, 78, amount) : lerp(14, 72, contrast);
+	const shadeField = front ? makeShadeField(rand) : null;
 
 	for (let row = 0; row < rows; row++) {
 		const rowT = rows === 1 ? 0.4 : row / (rows - 1);
-		const slopeT = front ? lerp(0.05, 0.28, rowT) : Math.pow(rowT, 0.75);
-		// Keep mid (contrast ~0.3–0.7) and back dense; only ease off at the front.
+		const slopeT = front ? Math.pow(rowT, 0.9) : Math.pow(rowT, 0.75);
 		const depthBoost = contrast < 0.75 ? lerp(3.6, 2.2, contrast / 0.75) : 1;
 		const count = Math.round(
 			(front ? lerp(48, 78, amount) : lerp(240, 140, contrast) * depthBoost) *
 				lerp(1.05, 1.35, amount) *
-				lerp(1.15, 0.95, rowT),
+				// Front: denser on the ridgeline, slightly looser as trees come forward.
+				(front ? lerp(2.35, 0.85, rowT) : lerp(1.05, 0.95, rowT)),
 		);
 		const spacing = w / Math.max(1, count);
 		const stagger = (row % 2) * spacing * 0.5;
 
 		for (let i = 0; i < count; i++) {
-			const x = i * spacing + stagger + (rand() - 0.5) * spacing * 0.55;
+			const x = front
+				? ((i + 0.5) / count) * w + (rand() - 0.5) * spacing * 0.25 + stagger * 0.3
+				: i * spacing + stagger + (rand() - 0.5) * spacing * 0.55;
 			if (x < -14 || x > w + 14) continue;
 
 			const awayFromFocus = clamp(Math.abs(x - focusX) / (w * 0.5), 0, 1);
 			if (contrast < 0.25 && awayFromFocus < 0.12 && row === 0 && rand() < 0.35) continue;
 
 			const ridgeY = sampleRidgeY(ridge, clamp(x, 0, w));
-			// Back layers: use the full band down to the next layer, not a short crest fringe.
-			const maxDrop = front
-				? lerp(18, 46, amount)
-				: Math.max(80, layerBottom - ridgeY);
-			const floor = ridgeY + maxDrop;
-			const baseY = clamp(
-				lerp(ridgeY + 4, floor, slopeT) + (rand() - 0.45) * (front ? 10 : 18),
-				ridgeY + 2,
-				Math.min(floor, h * (front ? 0.92 : 0.98)),
-			);
-			const nearness = clamp((baseY - ridgeY) / Math.max(12, maxDrop), 0, 1);
-			const height =
-				heightBase *
-				lerp(front ? 0.85 : 0.5, front ? 1.25 : 1.2, nearness) *
-				(0.7 + rand() * 0.55) *
-				(0.88 + awayFromFocus * 0.14);
-			pines.push(makePine(rand, x, baseY, height, treeFill, contrast));
-		}
-	}
-
-	if (front) {
-		const extras = Math.round(lerp(6, 14, amount));
-		for (let i = 0; i < extras; i++) {
-			const x = (rand() < 0.5 ? rand() * 0.34 : 0.66 + rand() * 0.34) * w;
-			const ridgeY = sampleRidgeY(ridge, clamp(x, 0, w));
-			const baseY = ridgeY + lerp(8, 28, rand());
-			pines.push(makePine(rand, x, baseY, lerp(90, 140, rand()), treeFill, contrast));
+			let baseY: number;
+			let height: number;
+			if (front) {
+				// Near rows plant past the bottom edge so only crowns/upper halves remain in frame.
+				const overshoot = lerp(-10, 110, Math.pow(rowT, 1.15));
+				baseY = lerp(ridgeY + 8, h + overshoot, slopeT) + (rand() - 0.45) * 14;
+				const visible = Math.max(0.2, 1 - overshoot / 160);
+				height = lerp(32, 170, Math.pow(rowT, 0.8)) * visible * (0.85 + rand() * 0.35);
+			} else {
+				const floor = ridgeY + Math.max(80, layerBottom - ridgeY);
+				baseY = clamp(
+					lerp(ridgeY + 6, floor, slopeT) + (rand() - 0.45) * 18,
+					ridgeY + 3,
+					floor,
+				);
+				const nearness = clamp((baseY - ridgeY) / Math.max(12, floor - ridgeY), 0, 1);
+				height = heightBase * lerp(0.5, 1.2, nearness) * (0.75 + rand() * 0.45);
+			}
+			const fill =
+				front && shadeField ? clumpedTreeFill(treeFill, x, baseY, shadeField) : treeFill;
+			pines.push(makePine(rand, x, baseY, height, fill, contrast));
 		}
 	}
 
