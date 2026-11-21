@@ -1,0 +1,48 @@
+---
+description: How to add a new interactive sketch. Use when creating or scaffolding a sketch — do not read other sketches for reference.
+globs: src/sketches/**/*,src/content/sketches/**/*
+alwaysApply: false
+---
+
+# Add a sketch
+
+Sketches are **independent**. Never open, copy, or pattern-match against other sketch folders. Site chrome (layout, routing, index, thumbnails) already handles listing and pages.
+
+## Checklist
+
+1. **Slug** = `YYYY-MM-DD`. Same calendar day as an existing sketch → append a letter (`2026-11-20b`, then `c`, …). Folder name and MDX basename must match the slug.
+2. **Code** in `src/sketches/<slug>/`
+   - One default-export React entry (`Something.tsx`).
+   - Colocate helpers as `.ts` / `.tsx` in that folder only.
+   - No shared modules with other sketches; no edits to other sketch dirs.
+3. **MDX** at `src/content/sketches/<slug>.mdx`:
+
+```mdx
+---
+title: "Short name"
+description: "One sentence: what the visitor does"
+pubDate: YYYY-MM-DD
+---
+
+import Something from "../../sketches/<slug>/Something.tsx";
+
+<div class="not-prose">
+	<Something client:only="react" />
+</div>
+```
+
+4. **Thumbnails** — after the MDX exists, run `npm run thumbnails -- <slug>` (e.g. `2026-11-20` or `2026-11-20b`). Writes only that sketch’s `public/thumbnails/<slug>-{0,1,2}.png` (procedural; no per-sketch art).
+5. **Do not** register routes, edit the homepage list, or touch `SketchLayout` / `[slug].astro` / `content.config.ts` unless the schema itself must change.
+
+## Frontmatter
+
+- `title`: short label (product / toy name).
+- `description`: one present-tense sentence of the interaction.
+- `pubDate`: the calendar date (letter suffix is only in the slug).
+- `updatedDate`: optional.
+
+## Implementation notes
+
+- Hydration is always `client:only="react"` inside `not-prose`.
+- Prefer a self-contained interactive toy; keep logic in the sketch folder.
+- Index order and prev/next come from the content collection + `src/lib/sketches.ts` sort helpers — no manual wiring.

@@ -12,21 +12,23 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sketchesDir = path.join(root, "src/content/sketches");
 const outDir = path.join(root, "public/thumbnails");
+const LAYER_COUNT = 3;
 
 const DEFAULTS = {
 	depth: 0.55,
 	trees: 0.85,
 	mist: 0.72,
 	paletteIndex: THUMB_PALETTE,
-	layerCount: 3,
+	layerCount: LAYER_COUNT,
 };
 
-async function sketchIds(): Promise<string[]> {
+async function knownSketchIds(): Promise<Set<string>> {
 	const files = await readdir(sketchesDir);
-	return files
-		.filter((name) => name.endsWith(".md") || name.endsWith(".mdx"))
-		.map((name) => name.replace(/\.(md|mdx)$/, ""))
-		.sort();
+	return new Set(
+		files
+			.filter((name) => name.endsWith(".md") || name.endsWith(".mdx"))
+			.map((name) => name.replace(/\.(md|mdx)$/, "")),
+	);
 }
 
 function renderPng(svg: string): Buffer {
@@ -37,10 +39,25 @@ function renderPng(svg: string): Buffer {
 	return Buffer.from(resvg.render().asPng());
 }
 
+function usage(): never {
+	console.error("Usage: npm run thumbnails -- <slug> [<slug>…]");
+	console.error("  slug is a sketch id, e.g. 2026-11-20 or 2026-11-20b");
+	process.exit(1);
+}
+
 async function main() {
-	const ids = await sketchIds();
+	const ids = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+	if (ids.length === 0) usage();
+
+	const known = await knownSketchIds();
+	const unknown = ids.filter((id) => !known.has(id));
+	if (unknown.length > 0) {
+		console.error(`Unknown sketch slug(s): ${unknown.join(", ")}`);
+		process.exit(1);
+	}
+
 	await mkdir(outDir, { recursive: true });
-	console.log(`Generating ${ids.length} × 3 parallax thumbnails…`);
+	console.log(`Generating thumbnails for ${ids.join(", ")}…`);
 
 	for (const id of ids) {
 		const scene = composeScene(seedFromId(id), DEFAULTS);
