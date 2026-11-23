@@ -112,10 +112,12 @@ function scoreVoice(voice: SpeechVoice): number {
 
 	// Prefer neural / online natural voices (Windows Edge / Chrome)
 	if (/online\s*\(natural\)|neural|natural|premium|enhanced|wavenet|studio/.test(name)) score += 120;
-	if (/\b(aria|jenny|guy|ryan|sonia|andrew|emma|brian|ava|davis|tony|sara)\b/.test(name)) score += 50;
+	if (/\b(aria|jenny|guy|ryan|sonia|andrew|emma|brian|ava|davis|tony|sara|natasha|michelle)\b/.test(name)) {
+		score += 50;
+	}
 	if (/google\s+us\s+english|google\s+uk\s+english\s+female/.test(name)) score += 40;
 	if (/microsoft/.test(name)) score += 15;
-	if (voice.localService === false) score += 25; // cloud neural usually sounds far better
+	if (voice.localService === false) score += 25;
 	if (voice.default) score += 5;
 
 	// Demote old robotic SAPI voices
@@ -147,11 +149,6 @@ async function ensureVoices(): Promise<SpeechVoice[]> {
 	});
 }
 
-export async function preferredVoiceName(): Promise<string | null> {
-	const voice = await resolveVoice();
-	return voice?.name ?? null;
-}
-
 async function resolveVoice(): Promise<SpeechVoice | null> {
 	if (cachedVoice !== undefined) return cachedVoice;
 	const voices = await ensureVoices();
@@ -159,7 +156,11 @@ async function resolveVoice(): Promise<SpeechVoice | null> {
 	return cachedVoice;
 }
 
-/** Speak with the best available neural/English voice on this machine. */
+export async function preferredVoiceName(): Promise<string | null> {
+	const voice = await resolveVoice();
+	return voice?.name ?? null;
+}
+
 export async function speak(text: string): Promise<void> {
 	if (!("speechSynthesis" in window)) return;
 	const clean = text.replace(/\s+/g, " ").trim();
@@ -168,7 +169,7 @@ export async function speak(text: string): Promise<void> {
 	window.speechSynthesis.cancel();
 	const voice = await resolveVoice();
 
-	return new Promise((resolve) => {
+	await new Promise<void>((resolve) => {
 		const utter = new SpeechSynthesisUtterance(clean);
 		utter.rate = 1.02;
 		utter.pitch = 1;
@@ -177,11 +178,7 @@ export async function speak(text: string): Promise<void> {
 
 		utter.onend = () => resolve();
 		utter.onerror = () => resolve();
-
-		// Chrome sometimes drops the first utterance after cancel; nudge the queue.
-		window.setTimeout(() => {
-			window.speechSynthesis.speak(utter);
-		}, 20);
+		window.setTimeout(() => window.speechSynthesis.speak(utter), 20);
 	});
 }
 

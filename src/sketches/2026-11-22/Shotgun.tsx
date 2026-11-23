@@ -42,7 +42,7 @@ export default function Shotgun() {
 		{
 			id: "welcome",
 			role: "shotgun",
-			text: "Passenger seat's free. Local brain is loading in the background — tap the wheel anytime for games, notes, lookups, GPS.",
+			text: "Passenger seat's free. Loading the on-device brain — tap the wheel anytime for chat, games, notes, lookups, GPS.",
 		},
 	]);
 	const [typed, setTyped] = useState("");
@@ -86,8 +86,8 @@ export default function Shotgun() {
 						id: `${Date.now()}-ready`,
 						role: "system",
 						text: fromCache
-							? `Loaded from cache · ${MODEL_LABEL}`
-							: `Downloaded & cached · ${MODEL_LABEL}`,
+							? `Chat model ready (cached) · ${MODEL_LABEL}`
+							: `Chat model installed · ${MODEL_LABEL}`,
 					},
 				]);
 			} catch (err) {
@@ -265,7 +265,7 @@ export default function Shotgun() {
 					<div>
 						<p style={eyebrow}>Local co-pilot</p>
 						<h2 style={brand}>Shotgun</h2>
-						<p style={tagline}>On-device chat · mic in, voice out · light data only for lookups</p>
+						<p style={tagline}>Models ship with the app · runtime stays local except lookups & GPS</p>
 					</div>
 					<div style={gaugeBlock}>
 						<div style={gauge}>
@@ -283,11 +283,12 @@ export default function Shotgun() {
 				<div style={actions}>
 					{status === "loading" ? (
 						<p style={readyChip}>
-							{phase === "cache" ? "Loading from cache" : "Downloading"} {MODEL_LABEL}… {progress}%
+							Installing {MODEL_LABEL}… {progress}%
+							{phase === "cache" ? " (cache)" : ""}
 						</p>
 					) : status === "ready" || status === "thinking" ? (
 						<p style={readyChip}>
-							Brain loaded · {voiceName ? `voice: ${voiceName}` : "replies stay on this device"}
+							On-device · {voiceName ? `voice: ${voiceName}` : "browser speech"}
 						</p>
 					) : status === "error" ? (
 						<button
@@ -431,7 +432,7 @@ export default function Shotgun() {
 						<div style={sideCard}>
 							<p style={sideTitle}>Data diet</p>
 							<p style={sideEmpty}>
-								Speech + chat run locally. Internet only for Wikipedia lookups, reverse-geocode, and the one-time model download.
+								Chat, mic, and voice run on-device after install. Mobile data only for optional Wikipedia lookups and GPS reverse-geocode — not for conversation.
 							</p>
 						</div>
 					</aside>

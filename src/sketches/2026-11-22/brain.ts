@@ -4,7 +4,7 @@ import { TOOL_DEFS, type ToolCall } from "./tools";
 
 export const MODEL_REPO = "LiquidAI/LFM2.5-350M-GGUF";
 export const MODEL_FILE = "LFM2.5-350M-Q4_K_M.gguf";
-export const MODEL_LABEL = "LFM2.5-350M · ~230 MB local";
+export const MODEL_LABEL = "LFM2.5-350M · local";
 
 const MODEL_URL = `https://huggingface.co/${MODEL_REPO}/resolve/main/${MODEL_FILE}`;
 
@@ -83,13 +83,14 @@ export async function unloadBrain(): Promise<void> {
 	if (!client) return;
 	await client.exit().catch(() => undefined);
 	client = null;
+	loadPromise = null;
 }
 
-const SYSTEM = `You are Shotgun — a witty, calm AI riding in the passenger seat.
-Keep every reply short (1–3 spoken sentences). Safety first: never distract with long monologues.
-You run locally on the driver's phone/laptop. Prefer tools for facts, notes, location, and starting games.
-You are great at trivia, word-chain, twenty questions, and rhyme battles.
-Tone: friendly co-pilot, a little dry humor, no emoji spam.`;
+const SYSTEM = `You are Shotgun — a natural, easygoing companion riding shotgun.
+Talk like a real person in the passenger seat: warm, lightly witty, never stiff.
+Keep replies short enough to speak while driving (usually 1–3 sentences), but sound conversational.
+You run fully on-device after install. Use tools when asked for facts, notes, location, or games.
+Don't over-pitch features — just chat, then help when it comes up. No emoji spam.`;
 
 export async function chat(
 	history: ChatTurn[],
@@ -123,8 +124,8 @@ export async function chat(
 			messages: messages as never,
 			tools: TOOL_DEFS as never,
 			tool_choice: "auto",
-			temperature: 0.7,
-			max_tokens: 140,
+			temperature: 0.8,
+			max_tokens: 160,
 		});
 
 		const choice = response.choices[0];
@@ -143,8 +144,8 @@ export async function chat(
 
 	const plain = await client.createChatCompletion({
 		messages: messages as never,
-		temperature: 0.75,
-		max_tokens: 120,
+		temperature: 0.85,
+		max_tokens: 160,
 	});
 	const text = String(plain.choices[0]?.message?.content ?? "").trim() || "Hmm — radio static. Try again?";
 	return { text: stripToolMarkup(text), toolCalls: parseInlineTools(text) };
