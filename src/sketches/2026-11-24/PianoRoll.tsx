@@ -144,12 +144,17 @@ export default function PianoRoll({ onNote }: Props) {
 	const stepsRef = useRef(steps);
 	const onNoteRef = useRef(onNote);
 	const lastPitchRef = useRef<number | null>(null);
+	const selectedIdRef = useRef<string | null>(null);
+	const suppressNodeDeleteRef = useRef(false);
+	const playingRef = useRef(false);
 	const scrollerRef = useRef<HTMLDivElement>(null);
 	const cellsRef = useRef<HTMLDivElement>(null);
 
 	notesRef.current = notes;
 	onNoteRef.current = onNote;
 	stepsRef.current = steps;
+	selectedIdRef.current = selectedId;
+	playingRef.current = playing;
 
 	const rows = useMemo(() => {
 		const list: number[] = [];
@@ -209,19 +214,62 @@ export default function PianoRoll({ onNote }: Props) {
 	}, [playing, bpm]);
 
 	useEffect(() => {
+		const blockFlowDelete = (event: KeyboardEvent) => {
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+		};
+
+		const deleteSelectedNote = () => {
+			const id = selectedIdRef.current;
+			if (!id) return;
+			suppressNodeDeleteRef.current = true;
+			setNotes((prev) => {
+				const next = prev.filter((n) => n.id !== id);
+				if (playingRef.current) {
+					// stepRef is advanced one ahead of the sounding step
+					const sounding =
+						(stepRef.current - 1 + stepsRef.current) % stepsRef.current;
+					const pitch = pitchAtStep(next, sounding);
+					lastPitchRef.current = pitch;
+					onNoteRef.current(pitch == null ? null : midiToFreq(pitch));
+				}
+				return next;
+			});
+			setSelectedId(null);
+		};
+
 		const onKey = (event: KeyboardEvent) => {
 			if (event.key !== "Delete" && event.key !== "Backspace") return;
 			const target = event.target as HTMLElement | null;
 			if (target?.matches?.("input, textarea, select")) return;
-			if (!selectedId) return;
-			event.preventDefault();
-			event.stopPropagation();
-			setNotes((prev) => prev.filter((n) => n.id !== selectedId));
-			setSelectedId(null);
+
+			// Key-repeat after deleting a note must not fall through to React Flow
+			// (that was removing the whole Piano Roll module).
+			if (suppressNodeDeleteRef.current) {
+				blockFlowDelete(event);
+				return;
+			}
+
+			if (!selectedIdRef.current) return;
+			blockFlowDelete(event);
+			if (event.repeat) return;
+			deleteSelectedNote();
 		};
+
+		const onKeyUp = (event: KeyboardEvent) => {
+			if (event.key === "Delete" || event.key === "Backspace") {
+				suppressNodeDeleteRef.current = false;
+			}
+		};
+
 		window.addEventListener("keydown", onKey, true);
-		return () => window.removeEventListener("keydown", onKey, true);
-	}, [selectedId]);
+		window.addEventListener("keyup", onKeyUp, true);
+		return () => {
+			window.removeEventListener("keydown", onKey, true);
+			window.removeEventListener("keyup", onKeyUp, true);
+		};
+	}, []);
 
 	const cellFromPoint = useCallback((clientX: number, clientY: number) => {
 		const root = cellsRef.current;
@@ -290,7 +338,17 @@ export default function PianoRoll({ onNote }: Props) {
 		setSelectedId(note.id);
 
 		if (event.detail === 2) {
-			setNotes((prev) => prev.filter((n) => n.id !== note.id));
+			setNotes((prev) => {
+				const next = prev.filter((n) => n.id !== note.id);
+				if (playingRef.current) {
+					const sounding =
+						(stepRef.current - 1 + stepsRef.current) % stepsRef.current;
+					const pitch = pitchAtStep(next, sounding);
+					lastPitchRef.current = pitch;
+					onNoteRef.current(pitch == null ? null : midiToFreq(pitch));
+				}
+				return next;
+			});
 			setSelectedId(null);
 			dragRef.current = null;
 			return;
