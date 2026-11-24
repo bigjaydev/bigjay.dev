@@ -694,6 +694,7 @@
 }
 
 .synth-roll__label {
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
@@ -714,11 +715,16 @@
 }
 
 .synth-roll__cells {
+	position: relative;
 	display: grid;
 	min-width: 0;
+	cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23e8e2d4' stroke='%23121210' stroke-width='1' d='M3 21v-3.8L14.8 5.4l3.8 3.8L6.8 21H3zm13.3-14.9l1.8-1.8a1 1 0 0 1 1.4 0l1.2 1.2a1 1 0 0 1 0 1.4l-1.8 1.8-3.8-3.8z'/%3E%3C/svg%3E")
+			4 20,
+		crosshair;
 }
 
 .synth-roll__cell {
+	box-sizing: border-box;
 	height: 14px;
 	border-right: 1px solid #1a1a16;
 	border-bottom: 1px solid #1a1a16;
@@ -741,15 +747,80 @@
 	background: #243028;
 }
 
-.synth-roll__cell.is-note {
-	background: color-mix(in srgb, var(--synth-accent) 55%, #2a2010);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--synth-accent) 40%, transparent);
+.synth-roll__notes {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 2;
 }
 
-.synth-roll__cell.is-note.is-head {
-	background: color-mix(in srgb, var(--synth-accent) 75%, #3a2810);
+.synth-roll__note {
+	position: absolute;
+	box-sizing: border-box;
+	pointer-events: auto;
+	border: 1px solid color-mix(in srgb, var(--synth-accent) 55%, #000);
+	border-radius: 2px;
+	background: color-mix(in srgb, var(--synth-accent) 62%, #2a2010);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+	cursor: grab;
+	touch-action: none;
 }
 
-.synth-roll__cell.is-note.is-playhead {
-	background: color-mix(in srgb, var(--synth-accent) 90%, #fff);
+.synth-roll__note.is-selected {
+	border-color: #f0c090;
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.16),
+		0 0 0 1px color-mix(in srgb, var(--synth-accent) 50%, transparent);
+}
+
+.synth-roll__note.is-playing {
+	background: color-mix(in srgb, var(--synth-accent) 88%, #fff);
+}
+
+.synth-roll__note:active {
+	cursor: grabbing;
+}
+
+.synth-roll__note-body {
+	position: absolute;
+	inset: 0;
+}
+
+.synth-roll__note-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	z-index: 1;
+	width: 3px;
+	cursor: ew-resize;
+	background: transparent;
+}
+
+.synth-roll__note-handle.is-start {
+	left: 0;
+}
+
+.synth-roll__note-handle.is-end {
+	right: 0;
+}
+
+.synth-roll__note:hover .synth-roll__note-handle,
+.synth-roll__note.is-selected .synth-roll__note-handle {
+	background: color-mix(in srgb, #000 30%, transparent);
+}
+
+.synth-roll__note-handle:hover {
+	width: 4px;
+	background: color-mix(in srgb, #fff 35%, transparent);
+}
+
+/* 1-step notes: keep the whole block for move; resize only from outer 2px edges */
+.synth-roll__note.is-short .synth-roll__note-handle {
+	width: 2px;
+	opacity: 0.35;
+}
+
+.synth-roll__note.is-short .synth-roll__note-handle:hover {
+	width: 3px;
+	opacity: 1;
 }

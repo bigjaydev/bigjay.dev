@@ -18,6 +18,7 @@ export type RollNote = {
 const MIDI_LO = 24;
 const MIDI_HI = 95;
 const ROW_COUNT = MIDI_HI - MIDI_LO + 1;
+const ROW_H = 14;
 
 const STEPS_PER_BAR = 16;
 const MIN_BARS = 1;
@@ -49,8 +50,12 @@ function pitchAtStep(notes: RollNote[], step: number): number | null {
 	return best;
 }
 
-function noteAtCell(notes: RollNote[], pitch: number, step: number): RollNote | undefined {
-	return notes.find((n) => n.pitch === pitch && step >= n.start && step < n.start + n.length);
+function clampNote(note: RollNote, steps: number): RollNote {
+	const pitch = Math.min(MIDI_HI, Math.max(MIDI_LO, note.pitch));
+	const start = Math.min(steps - 1, Math.max(0, note.start));
+	const maxLen = steps - start;
+	const length = Math.min(maxLen, Math.max(1, note.length));
+	return { ...note, pitch, start, length };
 }
 
 function seedNotes(): RollNote[] {
@@ -77,7 +82,7 @@ function seedNotes(): RollNote[] {
 }
 
 function formatLoopTime(bpm: number, steps: number): string {
-	const seconds = (steps * (60 / bpm)) / 4; // 16th notes
+	const seconds = (steps * (60 / bpm)) / 4;
 	if (seconds < 10) return `${seconds.toFixed(2)}s`;
 	return `${seconds.toFixed(1)}s`;
 }
@@ -88,6 +93,33 @@ function formatPlayhead(step: number): string {
 	const sixteenth = (step % 4) + 1;
 	return `${bar}.${beat}.${sixteenth}`;
 }
+
+type DragState =
+	| {
+			kind: "create";
+			id: string;
+			pitch: number;
+			origin: number;
+	  }
+	| {
+			kind: "move";
+			id: string;
+			grabStep: number;
+			grabPitch: number;
+			origStart: number;
+			origPitch: number;
+			origLength: number;
+	  }
+	| {
+			kind: "resize-start";
+			id: string;
+			fixedEnd: number;
+	  }
+	| {
+			kind: "resize-end";
+			id: string;
+			fixedStart: number;
+	  };
 
 type Props = {
 	onNote: (freq: number | null) => void;
@@ -101,17 +133,19 @@ export default function PianoRoll({ onNote }: Props) {
 	const [bars, setBars] = useState(DEFAULT_BARS);
 	const [playing, setPlaying] = useState(false);
 	const [step, setStep] = useState(0);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 
 	const steps = bars * STEPS_PER_BAR;
 	const loopSeconds = formatLoopTime(bpm, steps);
 
-	const paintRef = useRef<{ mode: "add" | "erase"; pitch: number; origin: number } | null>(null);
+	const dragRef = useRef<DragState | null>(null);
 	const notesRef = useRef(notes);
 	const stepRef = useRef(0);
 	const stepsRef = useRef(steps);
 	const onNoteRef = useRef(onNote);
 	const lastPitchRef = useRef<number | null>(null);
 	const scrollerRef = useRef<HTMLDivElement>(null);
+	const cellsRef = useRef<HTMLDivElement>(null);
 
 	notesRef.current = notes;
 	onNoteRef.current = onNote;
@@ -126,9 +160,8 @@ export default function PianoRoll({ onNote }: Props) {
 	useEffect(() => {
 		const el = scrollerRef.current;
 		if (!el) return;
-		const rowH = 14;
 		const c4Index = MIDI_HI - 60;
-		const top = Math.max(0, c4Index * rowH - el.clientHeight * 0.45);
+		const top = Math.max(0, c4Index * ROW_H - el.clientHeight * 0.45);
 		el.scrollTop = top;
 	}, []);
 
@@ -137,8 +170,7 @@ export default function PianoRoll({ onNote }: Props) {
 			prev
 				.map((n) => {
 					if (n.start >= steps) return null;
-					const end = Math.min(n.start + n.length, steps);
-					return { ...n, length: Math.max(1, end - n.start) };
+					return clampNote(n, steps);
 				})
 				.filter((n): n is RollNote => n != null),
 		);
@@ -155,7 +187,7 @@ export default function PianoRoll({ onNote }: Props) {
 			return;
 		}
 
-		const ms = (60_000 / bpm) / 4; // 16th notes
+		const ms = (60_000 / bpm) / 4;
 		const tick = () => {
 			const s = stepRef.current;
 			const pitch = pitchAtStep(notesRef.current, s);
@@ -176,60 +208,176 @@ export default function PianoRoll({ onNote }: Props) {
 		};
 	}, [playing, bpm]);
 
-	const upsertPaint = useCallback(
-		(pitch: number, start: number, end: number, mode: "add" | "erase") => {
-			const lo = Math.max(0, Math.min(start, end));
-			const hi = Math.min(stepsRef.current - 1, Math.max(start, end));
-			setNotes((prev) => {
-				let next = prev.filter(
-					(n) => !(n.pitch === pitch && n.start <= hi && n.start + n.length - 1 >= lo),
-				);
-				if (mode === "add") {
-					next = [...next, { id: `n-${noteSeq++}`, pitch, start: lo, length: hi - lo + 1 }];
-				}
-				return next;
-			});
-		},
-		[],
-	);
-
-	const cellFromPoint = (clientX: number, clientY: number, root: HTMLElement) => {
-		const cell = document.elementsFromPoint(clientX, clientY).find(
-			(el) => (el as HTMLElement).dataset?.rollPitch != null,
-		) as HTMLElement | undefined;
-		if (!cell || !root.contains(cell)) return null;
-		return {
-			pitch: Number(cell.dataset.rollPitch),
-			step: Number(cell.dataset.rollStep),
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== "Delete" && event.key !== "Backspace") return;
+			const target = event.target as HTMLElement | null;
+			if (target?.matches?.("input, textarea, select")) return;
+			if (!selectedId) return;
+			event.preventDefault();
+			event.stopPropagation();
+			setNotes((prev) => prev.filter((n) => n.id !== selectedId));
+			setSelectedId(null);
 		};
-	};
+		window.addEventListener("keydown", onKey, true);
+		return () => window.removeEventListener("keydown", onKey, true);
+	}, [selectedId]);
 
-	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		const root = event.currentTarget;
-		const cell = cellFromPoint(event.clientX, event.clientY, root);
+	const cellFromPoint = useCallback((clientX: number, clientY: number) => {
+		const root = cellsRef.current;
+		if (!root) return null;
+		const rect = root.getBoundingClientRect();
+		if (
+			clientX < rect.left ||
+			clientX >= rect.right ||
+			clientY < rect.top ||
+			clientY >= rect.bottom
+		) {
+			return null;
+		}
+		const totalSteps = stepsRef.current;
+		const relX = clientX - rect.left;
+		const relY = clientY - rect.top;
+		// Use measured size so React Flow zoom + borders stay aligned
+		const stepIdx = Math.min(
+			totalSteps - 1,
+			Math.max(0, Math.floor((relX / rect.width) * totalSteps)),
+		);
+		const rowIdx = Math.min(
+			ROW_COUNT - 1,
+			Math.max(0, Math.floor((relY / rect.height) * ROW_COUNT)),
+		);
+		const pitch = MIDI_HI - rowIdx;
+		return { pitch, step: stepIdx };
+	}, []);
+
+	const updateNote = useCallback((id: string, patch: Partial<RollNote>) => {
+		setNotes((prev) =>
+			prev.map((n) => (n.id === id ? clampNote({ ...n, ...patch }, stepsRef.current) : n)),
+		);
+	}, []);
+
+	const onPointerDownGrid = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if ((event.target as HTMLElement).closest(".synth-roll__note")) return;
+		const cell = cellFromPoint(event.clientX, event.clientY);
 		if (!cell) return;
 		event.preventDefault();
 		event.stopPropagation();
-		const existing = noteAtCell(notes, cell.pitch, cell.step);
-		const mode = existing ? "erase" : "add";
-		paintRef.current = { mode, pitch: cell.pitch, origin: cell.step };
-		root.setPointerCapture(event.pointerId);
-		upsertPaint(cell.pitch, cell.step, cell.step, mode);
+
+		const id = `n-${noteSeq++}`;
+		const note = clampNote(
+			{ id, pitch: cell.pitch, start: cell.step, length: 1 },
+			stepsRef.current,
+		);
+		setNotes((prev) => [...prev, note]);
+		setSelectedId(id);
+		dragRef.current = {
+			kind: "create",
+			id,
+			pitch: cell.pitch,
+			origin: cell.step,
+		};
+		event.currentTarget.setPointerCapture(event.pointerId);
+	};
+
+	const onPointerDownNote = (
+		event: ReactPointerEvent<HTMLElement>,
+		note: RollNote,
+		handle: "move" | "start" | "end",
+	) => {
+		event.preventDefault();
+		event.stopPropagation();
+		setSelectedId(note.id);
+
+		if (event.detail === 2) {
+			setNotes((prev) => prev.filter((n) => n.id !== note.id));
+			setSelectedId(null);
+			dragRef.current = null;
+			return;
+		}
+
+		const cell = cellFromPoint(event.clientX, event.clientY);
+		if (!cell) return;
+
+		if (handle === "start") {
+			dragRef.current = {
+				kind: "resize-start",
+				id: note.id,
+				fixedEnd: note.start + note.length,
+			};
+		} else if (handle === "end") {
+			dragRef.current = {
+				kind: "resize-end",
+				id: note.id,
+				fixedStart: note.start,
+			};
+		} else {
+			dragRef.current = {
+				kind: "move",
+				id: note.id,
+				grabStep: cell.step,
+				grabPitch: cell.pitch,
+				origStart: note.start,
+				origPitch: note.pitch,
+				origLength: note.length,
+			};
+		}
+
+		const grid = event.currentTarget.closest(".synth-roll__grid");
+		(grid as HTMLElement | null)?.setPointerCapture(event.pointerId);
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-		const paint = paintRef.current;
-		if (!paint) return;
-		const cell = cellFromPoint(event.clientX, event.clientY, event.currentTarget);
-		if (!cell || cell.pitch !== paint.pitch) return;
-		upsertPaint(paint.pitch, paint.origin, cell.step, paint.mode);
+		const drag = dragRef.current;
+		if (!drag) return;
+		const cell = cellFromPoint(event.clientX, event.clientY);
+		if (!cell) return;
+
+		if (drag.kind === "create") {
+			const lo = Math.min(drag.origin, cell.step);
+			const hi = Math.max(drag.origin, cell.step);
+			updateNote(drag.id, {
+				pitch: drag.pitch,
+				start: lo,
+				length: hi - lo + 1,
+			});
+			return;
+		}
+
+		if (drag.kind === "move") {
+			const dStep = cell.step - drag.grabStep;
+			const dPitch = cell.pitch - drag.grabPitch;
+			updateNote(drag.id, {
+				start: drag.origStart + dStep,
+				pitch: drag.origPitch + dPitch,
+				length: drag.origLength,
+			});
+			return;
+		}
+
+		if (drag.kind === "resize-start") {
+			const start = Math.min(drag.fixedEnd - 1, cell.step);
+			updateNote(drag.id, {
+				start,
+				length: drag.fixedEnd - start,
+			});
+			return;
+		}
+
+		if (drag.kind === "resize-end") {
+			const end = Math.max(drag.fixedStart, cell.step);
+			updateNote(drag.id, {
+				start: drag.fixedStart,
+				length: end - drag.fixedStart + 1,
+			});
+		}
 	};
 
 	const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
-		paintRef.current = null;
+		dragRef.current = null;
 	};
 
 	const setBpmClamped = (value: number) => {
@@ -297,6 +445,7 @@ export default function PianoRoll({ onNote }: Props) {
 					className="synth-roll__clear"
 					onClick={() => {
 						setNotes([]);
+						setSelectedId(null);
 						setPlaying(false);
 						onNote(null);
 					}}
@@ -305,7 +454,10 @@ export default function PianoRoll({ onNote }: Props) {
 				</button>
 			</div>
 
-			<div className="synth-roll__ruler" style={{ gridTemplateColumns: `36px repeat(${steps}, minmax(0, 1fr))` }}>
+			<div
+				className="synth-roll__ruler"
+				style={{ gridTemplateColumns: `36px repeat(${steps}, minmax(0, 1fr))` }}
+			>
 				<div className="synth-roll__ruler-gutter" />
 				{Array.from({ length: steps }, (_, s) => (
 					<div
@@ -326,13 +478,16 @@ export default function PianoRoll({ onNote }: Props) {
 			>
 				<div
 					className="synth-roll__grid"
-					style={{ height: ROW_COUNT * 14 }}
-					onPointerDown={onPointerDown}
+					style={{ height: ROW_COUNT * ROW_H }}
+					onPointerDown={onPointerDownGrid}
 					onPointerMove={onPointerMove}
 					onPointerUp={onPointerUp}
 					onPointerCancel={onPointerUp}
 				>
-					<div className="synth-roll__labels" style={{ gridTemplateRows: `repeat(${ROW_COUNT}, 14px)` }}>
+					<div
+						className="synth-roll__labels"
+						style={{ gridTemplateRows: `repeat(${ROW_COUNT}, ${ROW_H}px)` }}
+					>
 						{rows.map((pitch) => {
 							const sharp = NOTE_NAMES[pitch % 12].includes("♯");
 							return (
@@ -349,30 +504,25 @@ export default function PianoRoll({ onNote }: Props) {
 					</div>
 
 					<div
+						ref={cellsRef}
 						className="synth-roll__cells"
 						style={{
 							gridTemplateColumns: `repeat(${steps}, minmax(0, 1fr))`,
-							gridTemplateRows: `repeat(${ROW_COUNT}, 14px)`,
+							gridTemplateRows: `repeat(${ROW_COUNT}, ${ROW_H}px)`,
 						}}
 					>
 						{rows.map((pitch) =>
 							Array.from({ length: steps }, (_, s) => {
-								const covered = noteAtCell(notes, pitch, s);
 								const sharp = NOTE_NAMES[pitch % 12].includes("♯");
-								const isHead = covered && covered.start === s;
 								return (
 									<div
 										key={`${pitch}-${s}`}
-										data-roll-pitch={pitch}
-										data-roll-step={s}
 										className={[
 											"synth-roll__cell",
 											sharp ? "is-sharp" : "",
 											s % 16 === 0 ? "is-bar" : "",
 											s % 4 === 0 ? "is-beat" : "",
 											playing && s === step ? "is-playhead" : "",
-											covered ? "is-note" : "",
-											isHead ? "is-head" : "",
 										]
 											.filter(Boolean)
 											.join(" ")}
@@ -380,6 +530,41 @@ export default function PianoRoll({ onNote }: Props) {
 								);
 							}),
 						)}
+
+						<div className="synth-roll__notes">
+							{notes.map((note) => {
+								const top = (MIDI_HI - note.pitch) * ROW_H;
+								const left = (note.start / steps) * 100;
+								const width = (note.length / steps) * 100;
+								const active =
+									playing && step >= note.start && step < note.start + note.length;
+								return (
+									<div
+										key={note.id}
+										className={`synth-roll__note${note.length <= 1 ? " is-short" : ""}${
+											selectedId === note.id ? " is-selected" : ""
+										}${active ? " is-playing" : ""}`}
+										style={{
+											top,
+											left: `${left}%`,
+											width: `${width}%`,
+											height: ROW_H,
+										}}
+										onPointerDown={(e) => onPointerDownNote(e, note, "move")}
+									>
+										<span className="synth-roll__note-body" />
+										<span
+											className="synth-roll__note-handle is-start"
+											onPointerDown={(e) => onPointerDownNote(e, note, "start")}
+										/>
+										<span
+											className="synth-roll__note-handle is-end"
+											onPointerDown={(e) => onPointerDownNote(e, note, "end")}
+										/>
+									</div>
+								);
+							})}
+						</div>
 					</div>
 				</div>
 			</div>
