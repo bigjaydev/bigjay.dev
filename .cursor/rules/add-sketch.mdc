@@ -46,3 +46,4 @@ import Something from "../../sketches/<slug>/Something.tsx";
 - Hydration is always `client:only="react"` inside `not-prose`.
 - Prefer a self-contained interactive toy; keep logic in the sketch folder.
 - Index order and prev/next come from the content collection + `src/lib/sketches.ts` sort helpers — no manual wiring.
+- **Fullscreen demos:** Size the sketch root with something like `height: calc(100dvh - 13.5rem)` so it reaches the bottom of the viewport under the masthead. Do not rewrite `SketchLayout` for one sketch’s height.
