@@ -29,6 +29,7 @@
     "astro": "^6.3.3",
     "lucide-astro": "^0.556.0",
     "lucide-react": "^0.556.0",
+    "maplibre-gl": "^6.19.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.0",
