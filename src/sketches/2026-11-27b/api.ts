@@ -88,9 +88,11 @@ async function parkstay<T>(params: Record<string, string>): Promise<T> {
 	});
 	const ct = res.headers.get("content-type") ?? "";
 	if (!ct.includes("application/json")) {
-		throw new Error(
-			`parkstay returned ${ct || "non-JSON"} (HTTP ${res.status}) — restart astro dev`,
-		);
+		const hint =
+			res.status >= 500
+				? "ParkStay proxy failed"
+				: "unexpected non-JSON response";
+		throw new Error(`${hint} (HTTP ${res.status})`);
 	}
 	const json = (await res.json()) as T & { error?: string; queue?: boolean };
 	if (!res.ok || json.error) {

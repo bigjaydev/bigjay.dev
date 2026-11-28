@@ -6,7 +6,7 @@ import {
 	buildDetailPayload,
 	buildMapPayload,
 	buildStatusPayload,
-} from "../api/parkstay-lib.ts";
+} from "../api/_parkstay-lib.ts";
 
 function attach(server) {
 	server.middlewares.use(async (req, res, next) => {

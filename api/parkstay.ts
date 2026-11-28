@@ -1,6 +1,6 @@
 /**
- * Vercel Serverless (Node) — proxies Park Stay WA (DBCA) campground map + availability.
- * Node (not Edge) so we can wait in DBCA's virtual queue for up to ~60s.
+ * Vercel Edge Function — proxies Park Stay WA (DBCA) campground map + availability.
+ * Same handler shape as `/api/cyber-arcs` (proven on this deploy).
  *
  *   GET /api/parkstay?op=map
  *   GET /api/parkstay?op=status&arrival=YYYY-MM-DD&departure=YYYY-MM-DD
@@ -10,9 +10,11 @@ import {
 	buildDetailPayload,
 	buildMapPayload,
 	buildStatusPayload,
-} from "./parkstay-lib";
+} from "./_parkstay-lib";
 
 export const config = {
+	runtime: "edge",
+	// Queue join can take a while; Edge allows up to plan limit.
 	maxDuration: 60,
 };
 
@@ -21,30 +23,42 @@ export default async function handler(request: Request) {
 		return new Response(null, { status: 204, headers: corsHeaders() });
 	}
 
-	const url = new URL(request.url);
-	const op = url.searchParams.get("op") ?? "map";
+	try {
+		const url = new URL(request.url);
+		const op = url.searchParams.get("op") ?? "map";
 
-	if (op === "map") {
-		const { status, sMaxAge, body } = await buildMapPayload();
-		return json(body, status, sMaxAge);
+		if (op === "map") {
+			const { status, sMaxAge, body } = await buildMapPayload();
+			return json(body, status, sMaxAge);
+		}
+
+		if (op === "status") {
+			const arrival = url.searchParams.get("arrival") ?? "";
+			const departure = url.searchParams.get("departure") ?? "";
+			const { status, sMaxAge, body } = await buildStatusPayload(
+				arrival,
+				departure,
+			);
+			return json(body, status, sMaxAge);
+		}
+
+		if (op === "detail") {
+			const id = Number(url.searchParams.get("id"));
+			const arrival = url.searchParams.get("arrival") ?? "";
+			const departure = url.searchParams.get("departure") ?? "";
+			const { status, sMaxAge, body } = await buildDetailPayload(
+				id,
+				arrival,
+				departure,
+			);
+			return json(body, status, sMaxAge);
+		}
+
+		return json({ error: "unknown op" }, 400, 0);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : "parkstay failed";
+		return json({ error: message }, 500, 0);
 	}
-
-	if (op === "status") {
-		const arrival = url.searchParams.get("arrival") ?? "";
-		const departure = url.searchParams.get("departure") ?? "";
-		const { status, sMaxAge, body } = await buildStatusPayload(arrival, departure);
-		return json(body, status, sMaxAge);
-	}
-
-	if (op === "detail") {
-		const id = Number(url.searchParams.get("id"));
-		const arrival = url.searchParams.get("arrival") ?? "";
-		const departure = url.searchParams.get("departure") ?? "";
-		const { status, sMaxAge, body } = await buildDetailPayload(id, arrival, departure);
-		return json(body, status, sMaxAge);
-	}
-
-	return json({ error: "unknown op" }, 400, 0);
 }
 
 function json(body: unknown, status: number, sMaxAge: number) {
@@ -53,6 +67,8 @@ function json(body: unknown, status: number, sMaxAge: number) {
 		headers: {
 			"Content-Type": "application/json; charset=utf-8",
 			"Cache-Control": `public, s-maxage=${sMaxAge}, stale-while-revalidate=${Math.max(sMaxAge, 60)}`,
+			"CDN-Cache-Control": `public, s-maxage=${sMaxAge}, stale-while-revalidate=${Math.max(sMaxAge, 60)}`,
+			"Vercel-CDN-Cache-Control": `public, s-maxage=${sMaxAge}, stale-while-revalidate=${Math.max(sMaxAge, 60)}`,
 			...corsHeaders(),
 		},
 	});
