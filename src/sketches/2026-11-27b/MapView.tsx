@@ -62,7 +62,7 @@ const LAYER_SELECTED = "pitch-camps-selected";
 const LAYER_HOVERED = "pitch-camps-hovered";
 
 /**
- * Free raster basemap with town names — no API key, no MapLibre worker.
+ * Free raster basemap with town names — no API key.
  * OSM tiles + attribution (required).
  */
 const BASE_STYLE: StyleSpecification = {

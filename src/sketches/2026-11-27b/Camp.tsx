@@ -62,6 +62,7 @@ export default function Camp() {
 	const [detailStale, setDetailStale] = useState<{ updated?: string } | null>(null);
 	const [loadingDetail, setLoadingDetail] = useState(false);
 	const [filter, setFilter] = useState<Filter>("all");
+	const [wholeRangeOnly, setWholeRangeOnly] = useState(false);
 	const [sortMode, setSortMode] = useState<SortMode>("spots");
 	const [query, setQuery] = useState("");
 	const [visibleIds, setVisibleIds] = useState<number[]>([]);
@@ -203,10 +204,23 @@ export default function Camp() {
 		[statusReady, statuses],
 	);
 
-	const matchesFilter = useCallback(
+	/** Map pins: availability filters only — never wipe pins while status is still loading. */
+	const matchesMap = useCallback(
 		(c: Campground) => {
 			const st = statusOf(c);
+			if (wholeRangeOnly) {
+				if (!statusReady || st === "pending") return true;
+				return st === "full";
+			}
 			if (filter !== "all" && st !== filter) return false;
+			return true;
+		},
+		[filter, wholeRangeOnly, statusOf, statusReady],
+	);
+
+	const matchesFilter = useCallback(
+		(c: Campground) => {
+			if (!matchesMap(c)) return false;
 			const q = query.trim().toLowerCase();
 			if (!q) return true;
 			return (
@@ -215,7 +229,7 @@ export default function Camp() {
 				c.region.toLowerCase().includes(q)
 			);
 		},
-		[filter, query, statusOf],
+		[matchesMap, query],
 	);
 
 	const onVisibleChange = useCallback((ids: number[]) => {
@@ -330,6 +344,18 @@ export default function Camp() {
 						{nights.length || Math.max(0, dayDiff(arrival, departure))} night
 						{(nights.length || Math.max(0, dayDiff(arrival, departure))) === 1 ? "" : "s"}
 					</span>
+					<label className="pitch-whole-only">
+						<input
+							type="checkbox"
+							checked={wholeRangeOnly}
+							onChange={(e) => {
+								const on = e.target.checked;
+								setWholeRangeOnly(on);
+								if (on) setFilter("all");
+							}}
+						/>
+						Only available all nights
+					</label>
 				</div>
 			</header>
 
@@ -345,7 +371,7 @@ export default function Camp() {
 						onVisibleChange={onVisibleChange}
 						onCameraChange={onCameraChange}
 						initialCamera={savedCamera}
-						filter={matchesFilter}
+						filter={matchesMap}
 						focusId={focusId}
 					/>
 
@@ -708,6 +734,9 @@ const CSS = `
 	color: var(--muted);
 	padding-bottom: 0.45rem;
 }
+.pitch-dates .pitch-whole-only {
+	padding-bottom: 0.4rem;
+}
 .pitch-stage {
 	flex: 1;
 	min-height: 0;
@@ -915,6 +944,24 @@ const CSS = `
 	padding: 0.45rem 0.6rem;
 	font: inherit;
 	font-size: 0.9rem;
+}
+.pitch-whole-only {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.78rem;
+	color: var(--ink);
+	cursor: pointer;
+	user-select: none;
+	text-transform: none;
+	letter-spacing: 0;
+}
+.pitch-whole-only input {
+	accent-color: var(--full);
+	width: 0.95rem;
+	height: 0.95rem;
+	margin: 0;
+	cursor: pointer;
 }
 .pitch-list-tools {
 	display: flex;
